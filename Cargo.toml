@@ -1,0 +1,28 @@
+[workspace]
+# Root is both the core package and the workspace root. The
+# `spatial-query-viewport-examples` member lands at Phase 2E; it carries the
+# viewport-lib dependency so the core package stays viewport-free.
+members = []
+
+[package]
+name = "spatial-query"
+version = "0.0.0"
+edition = "2021"
+description = "Host-agnostic spatial acceleration and query engine (BLAS/TLAS BVH, ray/shape/overlap) for interactive 3D scenes and physics."
+repository = ""
+readme = "README.md"
+
+[features]
+# Default is the pure-CPU, host-agnostic core: no wgpu, no renderer, no physics.
+default = []
+# Optional GPU-compute traversal backend. Pulls wgpu into the graph; the core
+# stays usable and correct without it. See docs/plans for the phase that lands this.
+gpu = []
+# Optional double-precision query math for consumers that need it (determinism
+# / large-coordinate scenes). Off by default.
+f64 = []
+
+[dependencies]
+glam = "0.29"
+
+[dev-dependencies]

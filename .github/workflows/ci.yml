@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  test:
+    name: build + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+
+      - name: fmt
+        run: cargo fmt --all --check
+
+      - name: clippy (all features)
+        run: cargo clippy --workspace --all-features --all-targets
+
+      - name: build (default features)
+        run: cargo build --workspace
+
+      - name: build (all features)
+        run: cargo build --workspace --all-features
+
+      - name: test
+        run: cargo test --workspace --all-features
+
+  host-agnostic:
+    name: no-default-features guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # Guards the crate's core commitment: the default build pulls in no
+      # renderer, no physics engine, and no wgpu. If a viewport-lib or wgpu
+      # dependency ever leaks into the core package's normal build graph, this
+      # job fails.
+      - name: build core, no default features
+        run: cargo build -p spatial-query --no-default-features
+
+      - name: test core, no default features
+        run: cargo test -p spatial-query --no-default-features

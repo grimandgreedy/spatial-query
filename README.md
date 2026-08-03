@@ -1,0 +1,3 @@
+# spatial-query
+
+viewport-lib has a cpu/gpu picker but general queries are not supported and the existing methods cannot easily be stretched to incorporate general queries. The GPU pick works great because it is a pixel pick from the camera direction so we can use the same gpu render pass to get the data we need. But in cases where, e.g., we want to do 100 raycast queries from 100 different directions this would require either the require us to use the cpu picker with the cache being rebuiilt greedily which costs quite a bit or for the GPU we would essentially have to render the whole scene 100 times to get the data we need. This will become a spatial query engine on an arbitrary set of objects in n-space.
