@@ -1,0 +1,13 @@
+[package]
+name = "spatial-query-viewport-examples"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Visual examples for spatial-query, rendered with viewport-lib's ViewportApp."
+
+[dependencies]
+# glam is pinned to viewport-lib's exact version so that `Mat4` and `Vec3`
+# interoperate. The core never depends on glam.
+spatial-query = { path = ".." }
+viewport-lib = { path = "../../viewport-lib", features = ["app"] }
+glam = "=0.30.10"

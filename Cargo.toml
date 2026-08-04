@@ -2,13 +2,13 @@
 # Root is both the core package and the workspace root. The
 # `spatial-query-viewport-examples` member lands at Phase 2E; it carries the
 # viewport-lib dependency so the core package stays viewport-free.
-members = []
+members = ["examples-viewport"]
 
 [package]
 name = "spatial-query"
 version = "0.0.0"
 edition = "2021"
-description = "Host-agnostic spatial acceleration and query engine (BLAS/TLAS BVH, ray/shape/overlap) for interactive 3D scenes and physics."
+description = "Host-agnostic, N-dimensional spatial acceleration and query engine (BVH, ray/shape/overlap) over an arbitrary set of objects in n-space."
 repository = ""
 readme = "README.md"
 
@@ -23,6 +23,8 @@ gpu = []
 f64 = []
 
 [dependencies]
-glam = "0.29"
+# The core is N-dimensional (ADR-002): the point type is const-generic
+# `[f32; D]`, not glam::Vec3, so glam is intentionally NOT a core dependency.
+# glam lives only in the 3D adapters and examples.
 
 [dev-dependencies]
