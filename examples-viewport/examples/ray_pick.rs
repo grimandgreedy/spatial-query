@@ -14,16 +14,15 @@ use std::rc::Rc;
 
 use glam::{Mat4, Quat, Vec3};
 use spatial_query::{Bvh, QueryFilter, Ray};
-use spatial_query_viewport_examples::{to_point, to_vec3, SphereScene};
+use spatial_query_viewport_examples::{sweep_ray, to_point, to_vec3, SphereScene};
 use viewport_lib::{primitives, AppConfig, Material, NodeId, ViewportApp};
 
-const RAY_ORIGIN: Vec3 = Vec3::new(0.0, 0.0, 5.0);
 const RAY_DOTS: usize = 30;
-const RAY_DOT_STEP: f32 = 0.4;
+const RAY_LENGTH: f32 = 24.0;
 const MAX_TOI: f32 = 100.0;
 
 fn main() {
-    let scene = Rc::new(SphereScene::scatter(40, 0x00C0_FFEE));
+    let scene = Rc::new(SphereScene::scatter(60, 0x00C0_FFEE));
     let bvh = Rc::new(Bvh::build(&*scene));
     let dots: Rc<RefCell<Vec<NodeId>>> = Rc::new(RefCell::new(Vec::new()));
     let marker: Rc<Cell<Option<NodeId>>> = Rc::new(Cell::new(None));
@@ -86,27 +85,23 @@ fn main() {
         session.camera_mut().distance = 18.0;
     })
     .run(move |ctx| {
-        let t = ctx.time();
-        let dir = Vec3::new(t.cos(), t.sin(), -0.35).normalize();
-        let ray = Ray::new(to_point(RAY_ORIGIN), to_point(dir));
+        let (origin, dir) = sweep_ray(ctx.time());
+        let ray = Ray::new(to_point(origin), to_point(dir));
 
         let hit = bvh.raycast_nearest(&*scene, &ray, MAX_TOI, &QueryFilter::default());
-        let hit_toi = hit.as_ref().map(|h| h.time_of_impact).unwrap_or(MAX_TOI);
 
         let sc = ctx.scene_mut();
 
-        // Lay the ray trail from the origin up to the hit (or full length).
+        // Lay the ray trail evenly from the origin to the hit. With no hit, draw
+        // the ray at a fixed length so it stays visible passing through.
+        let seg = hit.as_ref().map(|h| h.time_of_impact).unwrap_or(RAY_LENGTH);
+        let spacing = seg / RAY_DOTS as f32;
         let dots = dots.borrow();
         for (i, &id) in dots.iter().enumerate() {
-            let d = (i as f32 + 1.0) * RAY_DOT_STEP;
-            let pos = if d <= hit_toi {
-                RAY_ORIGIN + dir * d
-            } else {
-                Vec3::new(0.0, 0.0, -1000.0) // past the hit: park it out of view
-            };
+            let pos = origin + dir * ((i as f32 + 1.0) * spacing);
             sc.set_local_transform(
                 id,
-                Mat4::from_scale_rotation_translation(Vec3::splat(0.05), Quat::IDENTITY, pos),
+                Mat4::from_scale_rotation_translation(Vec3::splat(0.08), Quat::IDENTITY, pos),
             );
         }
 
@@ -117,7 +112,7 @@ fn main() {
                 .unwrap_or(Vec3::new(0.0, 0.0, -1000.0));
             sc.set_local_transform(
                 m,
-                Mat4::from_scale_rotation_translation(Vec3::splat(0.35), Quat::IDENTITY, pos),
+                Mat4::from_scale_rotation_translation(Vec3::splat(0.4), Quat::IDENTITY, pos),
             );
         }
     });

@@ -5,9 +5,13 @@ on:
     branches: [main]
   pull_request:
 
+# Note: we do NOT set `RUSTFLAGS: -D warnings` globally. The examples crate
+# depends on viewport-lib by path, and cargo does not lint-cap path
+# dependencies, so a global deny would turn viewport-lib's own warnings into
+# build failures here. Warnings are denied only on our own crates, via
+# `cargo clippy ... -- -D warnings`.
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-D warnings"
 
 jobs:
   test:
@@ -24,7 +28,7 @@ jobs:
         run: cargo fmt --all --check
 
       - name: clippy (all features)
-        run: cargo clippy --workspace --all-features --all-targets
+        run: cargo clippy --workspace --all-features --all-targets -- -D warnings
 
       - name: build (default features)
         run: cargo build --workspace

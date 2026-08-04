@@ -20,6 +20,21 @@ pub fn to_point(v: Vec3) -> Point<3> {
     Point([v.x, v.y, v.z])
 }
 
+/// A ray for the sweep animations. The origin orbits the sphere cloud on a
+/// radius-12 circle (with a slow vertical bob) and always aims at the centre, so
+/// the ray passes through the cloud every frame and the direction rotates
+/// visibly over time. Returns `(origin, unit_direction)`.
+pub fn sweep_ray(time: f32) -> (Vec3, Vec3) {
+    let theta = time * 0.7;
+    let origin = Vec3::new(
+        12.0 * theta.cos(),
+        12.0 * theta.sin(),
+        3.5 * (time * 0.5).sin(),
+    );
+    let dir = (Vec3::ZERO - origin).normalize();
+    (origin, dir)
+}
+
 /// A scene of spheres: the geometry both rendered by viewport-lib and queried by
 /// spatial-query. Centres and radii are the single source of truth for both.
 pub struct SphereScene {
@@ -41,14 +56,16 @@ impl SphereScene {
         };
         let mut unit = || (next() >> 11) as f32 / (1u64 << 53) as f32;
 
+        // A fairly dense cluster near the origin, so a ray aimed through the
+        // centre reliably intersects several spheres.
         let mut centers = Vec::with_capacity(n);
         let mut radii = Vec::with_capacity(n);
         for _ in 0..n {
-            let x = (unit() - 0.5) * 10.0;
-            let y = (unit() - 0.5) * 10.0;
+            let x = (unit() - 0.5) * 9.0;
+            let y = (unit() - 0.5) * 9.0;
             let z = (unit() - 0.5) * 4.0;
             centers.push(Point([x, y, z]));
-            radii.push(0.35 + unit() * 0.5);
+            radii.push(0.45 + unit() * 0.45);
         }
         SphereScene { centers, radii }
     }
