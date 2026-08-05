@@ -123,6 +123,75 @@ impl<const D: usize> Bvh<D> {
         best
     }
 
+    /// The nearest hit for each ray in `rays`, one entry per input ray in the
+    /// same order.
+    ///
+    /// Each ray is answered by an independent [`raycast_nearest`](Self::raycast_nearest),
+    /// so the result is the deterministic per-ray outcome laid out in ray order.
+    /// This is the sequential reference that
+    /// [`raycast_nearest_batch_parallel`](Self::raycast_nearest_batch_parallel)
+    /// reproduces bit for bit.
+    pub fn raycast_nearest_batch<G: QueryGeometry<D>>(
+        &self,
+        g: &G,
+        rays: &[Ray<D>],
+        max_toi: Scalar,
+        filter: &QueryFilter,
+    ) -> Vec<Option<Hit<G::Id, D, G::SubObject>>> {
+        rays.iter()
+            .map(|ray| self.raycast_nearest(g, ray, max_toi, filter))
+            .collect()
+    }
+
+    /// The nearest hit for each ray, computed across up to `threads` worker
+    /// threads, returning the exact same values in the exact same order as
+    /// [`raycast_nearest_batch`](Self::raycast_nearest_batch).
+    ///
+    /// The batch is split into contiguous index ranges, one per worker, and each
+    /// worker writes only into its own slice of the output. No result depends on
+    /// another ray, and nothing is reduced across rays, so the output is a
+    /// function of the ray index alone: the thread count and scheduling cannot
+    /// change it. This is the fixed-order parallelism the deterministic contract
+    /// allows -- identical to the sequential path, never an unordered reduction.
+    ///
+    /// `threads` is clamped to at least one and at most the number of rays; a
+    /// value of one (or an empty or single-ray batch) runs sequentially without
+    /// spawning.
+    pub fn raycast_nearest_batch_parallel<G>(
+        &self,
+        g: &G,
+        rays: &[Ray<D>],
+        max_toi: Scalar,
+        filter: &QueryFilter,
+        threads: usize,
+    ) -> Vec<Option<Hit<G::Id, D, G::SubObject>>>
+    where
+        G: QueryGeometry<D> + Sync,
+        G::Id: Send,
+        G::SubObject: Send,
+    {
+        let workers = threads.clamp(1, rays.len().max(1));
+        if workers == 1 {
+            return self.raycast_nearest_batch(g, rays, max_toi, filter);
+        }
+
+        let mut out: Vec<Option<Hit<G::Id, D, G::SubObject>>> =
+            (0..rays.len()).map(|_| None).collect();
+        // Ceiling division so `workers` chunks cover every ray; the last chunk may
+        // be shorter. Chunk boundaries are fixed by index, not by timing.
+        let chunk = rays.len().div_ceil(workers);
+        std::thread::scope(|scope| {
+            for (ray_chunk, out_chunk) in rays.chunks(chunk).zip(out.chunks_mut(chunk)) {
+                scope.spawn(move || {
+                    for (ray, slot) in ray_chunk.iter().zip(out_chunk.iter_mut()) {
+                        *slot = self.raycast_nearest(g, ray, max_toi, filter);
+                    }
+                });
+            }
+        });
+        out
+    }
+
     /// All hits along `ray` within `max_toi`, sorted nearest-first (then leaf).
     pub fn raycast_all<G: QueryGeometry<D>>(
         &self,

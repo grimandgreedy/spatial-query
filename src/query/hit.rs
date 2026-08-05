@@ -17,7 +17,7 @@ use crate::maths::{Point, Scalar};
 /// Build one with [`LeafHit::new`], then optionally [`with_sub_object`](Self::with_sub_object).
 /// The struct is `#[non_exhaustive]` so later query kinds can add fields without
 /// breaking providers.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct LeafHit<const D: usize, S = ()> {
     /// Distance along the ray direction to the hit (world units for a unit ray).
@@ -52,7 +52,7 @@ impl<const D: usize, S> LeafHit<D, S> {
 ///
 /// `S` is the provider's [`SubObject`](crate::QueryGeometry::SubObject) type,
 /// carried through from the [`LeafHit`]. It defaults to `()`.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct Hit<Id, const D: usize, S = ()> {
     /// The provider's identity for the object that was hit.
