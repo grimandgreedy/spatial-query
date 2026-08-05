@@ -6,17 +6,114 @@
 //! consumer can register alternates (a draw-pass picker, a GPU-compute backend)
 //! that win for their own regimes.
 //!
-//! The cost estimates are advisory and uncalibrated: they encode the *shape* of
-//! each backend's cost, not measured constants. Do not trust the numbers as
-//! absolute times until a benchmark study calibrates them. Two guardrails make a
-//! wrong model safe: a deterministic or headless request always pins to CPU, and
-//! the caller can force a backend outright.
+//! The cost estimates are advisory but data-derived: [`cost`] holds constants
+//! calibrated by the Phase 11 crossover study (see
+//! `spatial-query-testkit/CROSSOVER.md`), expressed in microseconds. They fix the
+//! *shape and the crossover band*, not exact times on other hardware, so they are
+//! still advisory: two guardrails make a wrong model safe: a deterministic or
+//! headless request always pins to CPU, and the caller can force a backend
+//! outright.
 
 use crate::accel::Bvh;
 use crate::maths::{Ray, Scalar};
 use crate::query::filter::QueryFilter;
 use crate::query::geometry::QueryGeometry;
 use crate::query::hit::Hit;
+
+/// Calibrated backend cost functions (microseconds), from the Phase 11 crossover
+/// study on an Apple M4 Pro (14 cores). See `spatial-query-testkit/CROSSOVER.md`
+/// for the measurements these constants are fitted to.
+///
+/// Each function returns an estimated wall-clock in microseconds for a batch
+/// described by a [`QueryContext`]. They are *advisory*: the constants are fitted
+/// to reproduce the measured crossovers on one machine, biased to the large-scene
+/// case where the backend choice actually bites, and are conservative (they pick
+/// the GPU slightly early) for small scenes where absolute times are tiny anyway.
+/// The [`Dispatcher`] compares them only by ordering, and the determinism and
+/// force guardrails cover any misprediction.
+///
+/// A consumer that registers a real GPU or draw-pass backend should return these
+/// from its [`QueryBackend::estimate_cost`] so every backend is weighed on the
+/// same calibrated scale.
+pub mod cost {
+    use super::QueryContext;
+
+    /// The CPU per-ray cost is `(CPU_TRAVERSAL_US_PER_LEVEL2 + hint *
+    /// CPU_NARROW_US_PER_LEVEL2) * depth^2` microseconds, where `depth =
+    /// log2(leaves)` and `hint` is [`QueryContext::narrow_cost_hint`]. Superlinear
+    /// in depth because a bigger tree spills the cache. The two parts sum to the
+    /// Phase 11 coefficient (0.0098) at `hint = 1`, so the sphere calibration is
+    /// unchanged; splitting it lets a field leaf's expensive narrow phase scale
+    /// on its own. This part is the primitive-independent tree walk.
+    pub const CPU_TRAVERSAL_US_PER_LEVEL2: f64 = 0.0020;
+
+    /// The narrow-test part of the CPU per-ray cost, scaled by the per-primitive
+    /// hint. Fitted with [`CPU_TRAVERSAL_US_PER_LEVEL2`] to the 100k-sphere scene
+    /// (2.70 us/ray at depth ~16.6) at `hint = 1`.
+    pub const CPU_NARROW_US_PER_LEVEL2: f64 = 0.0078;
+
+    /// GPU one-shot cost: dispatch plus buffer readback latency, paid once per
+    /// batch regardless of size. Measured at ~1350 us for a batch of one on the
+    /// reference machine, roughly scene-independent.
+    pub const GPU_FIXED_US: f64 = 1350.0;
+
+    /// The primitive-independent part of the GPU per-ray cost, same `depth^2`
+    /// shape as the CPU path but far cheaper. Sums with [`GPU_NARROW_US_PER_LEVEL2`]
+    /// to the Phase 11 coefficient (0.000193) at `hint = 1`.
+    pub const GPU_TRAVERSAL_US_PER_LEVEL2: f64 = 0.00004;
+
+    /// The narrow-test part of the GPU per-ray cost, scaled by the per-primitive
+    /// hint. Fitted with [`GPU_TRAVERSAL_US_PER_LEVEL2`] to the 100k-sphere scene
+    /// (0.053 us/ray at depth ~16.6) at `hint = 1`.
+    pub const GPU_NARROW_US_PER_LEVEL2: f64 = 0.000153;
+
+    /// Draw-pass fixed cost: reading back the pixel under one view direction. The
+    /// first view rides the frame's existing draw, so it is nearly free. This
+    /// constant is *not measured* (no real draw-pass backend exists in-tree yet);
+    /// it is a plausible placeholder pending Phase 9's renderer wiring.
+    pub const DRAW_PASS_READBACK_US: f64 = 0.5;
+
+    /// Draw-pass per-extra-view cost: each distinct direction beyond the first
+    /// costs a full scene render pass, modelled per leaf. Also *not measured*.
+    pub const DRAW_PASS_US_PER_LEAF: f64 = 0.002;
+
+    /// Tree depth in levels for a scene of `leaves` leaves: `log2(leaves + 1)`,
+    /// clamped to at least one so a one-leaf scene still costs something.
+    fn depth(leaves: usize) -> f64 {
+        ((leaves + 1) as f64).log2().max(1.0)
+    }
+
+    /// Estimated microseconds for the sequential CPU traversal to answer `ctx`'s
+    /// batch. One independent tree walk per ray; the narrow part scales with the
+    /// per-primitive [`narrow_cost_hint`](QueryContext::narrow_cost_hint).
+    pub fn cpu_batch_us(ctx: &QueryContext) -> f64 {
+        let d = depth(ctx.scene_leaves);
+        let per_ray =
+            (CPU_TRAVERSAL_US_PER_LEVEL2 + ctx.narrow_cost_hint * CPU_NARROW_US_PER_LEVEL2) * d * d;
+        ctx.batch_size as f64 * per_ray
+    }
+
+    /// Estimated microseconds for the GPU-compute backend to answer `ctx`'s batch:
+    /// the fixed dispatch/readback cost plus a cheap per-ray term whose narrow
+    /// part scales with the per-primitive
+    /// [`narrow_cost_hint`](QueryContext::narrow_cost_hint). Direction-agnostic,
+    /// so `distinct_directions` does not enter.
+    pub fn gpu_batch_us(ctx: &QueryContext) -> f64 {
+        let d = depth(ctx.scene_leaves);
+        let per_ray =
+            (GPU_TRAVERSAL_US_PER_LEVEL2 + ctx.narrow_cost_hint * GPU_NARROW_US_PER_LEVEL2) * d * d;
+        GPU_FIXED_US + ctx.batch_size as f64 * per_ray
+    }
+
+    /// Estimated microseconds for a draw-pass picker to answer `ctx`'s batch: the
+    /// first view is nearly free (it rides the frame's draw), each extra distinct
+    /// direction costs a scene pass. Wins as `distinct_directions` approaches one
+    /// on a large scene.
+    pub fn draw_pass_batch_us(ctx: &QueryContext) -> f64 {
+        let extra_views = ctx.distinct_directions.saturating_sub(1) as f64;
+        DRAW_PASS_READBACK_US + extra_views * DRAW_PASS_US_PER_LEAF * ctx.scene_leaves as f64
+    }
+}
 
 /// The per-ray nearest-hit results of a batch: one `Option<Hit>` per input ray,
 /// in the same order.
@@ -69,6 +166,14 @@ pub struct QueryContext {
     /// Whether the caller requires the deterministic path (e.g. replay). When
     /// set, selection pins to CPU regardless of cost.
     pub require_deterministic: bool,
+    /// Relative cost of one leaf's narrow test, with `1.0` a cheap analytic
+    /// primitive (a triangle, a sphere). A leaf whose `test_ray` marches a field
+    /// -- a fluid density iso-surface, a ray-marched volume -- costs many field
+    /// evaluations per test, so it sets this well above one (tens to hundreds).
+    /// The cost model scales the narrow part of every backend's estimate by it,
+    /// so an expensive-primitive scene amortizes a device backend's fixed cost
+    /// sooner. Defaults to `1.0`.
+    pub narrow_cost_hint: f64,
 }
 
 impl QueryContext {
@@ -82,12 +187,21 @@ impl QueryContext {
             scene_leaves,
             device_available: false,
             require_deterministic: false,
+            narrow_cost_hint: 1.0,
         }
     }
 
     /// Mark whether a GPU device is available.
     pub fn with_device(mut self, available: bool) -> Self {
         self.device_available = available;
+        self
+    }
+
+    /// Set the per-leaf narrow-test cost relative to a cheap analytic primitive
+    /// (`1.0`). A field-marching leaf sets this high; see
+    /// [`narrow_cost_hint`](Self::narrow_cost_hint).
+    pub fn with_narrow_cost(mut self, hint: f64) -> Self {
+        self.narrow_cost_hint = hint.max(0.0);
         self
     }
 
@@ -144,9 +258,8 @@ impl<const D: usize, G: QueryGeometry<D>> QueryBackend<D, G> for CpuBackend<'_, 
     }
 
     fn estimate_cost(&self, ctx: &QueryContext) -> f64 {
-        // One tree walk per ray, roughly the tree depth in node tests.
-        let per_ray = ((ctx.scene_leaves + 1) as f64).log2().max(1.0);
-        ctx.batch_size as f64 * per_ray
+        // The calibrated sequential-traversal cost, in microseconds.
+        cost::cpu_batch_us(ctx)
     }
 
     fn raycast_nearest_batch(

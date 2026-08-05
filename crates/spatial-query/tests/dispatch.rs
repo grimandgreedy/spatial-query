@@ -101,9 +101,9 @@ impl QueryBackend<3, Balls> for StubDrawPass<'_> {
         ctx.device_available
     }
     fn estimate_cost(&self, ctx: &QueryContext) -> f64 {
-        // The first view piggybacks the frame's draw (nearly free); each extra
-        // distinct direction costs a full scene pass.
-        (ctx.distinct_directions.saturating_sub(1)) as f64 * ctx.scene_leaves as f64 + 1.0
+        // The calibrated draw-pass cost: nearly free for one view, a scene pass
+        // per extra direction.
+        spatial_query::dispatch::cost::draw_pass_batch_us(ctx)
     }
     fn raycast_nearest_batch(
         &self,
@@ -129,8 +129,9 @@ impl QueryBackend<3, Balls> for StubGpu<'_> {
         ctx.device_available
     }
     fn estimate_cost(&self, ctx: &QueryContext) -> f64 {
-        // One buffer upload plus one dispatch over the batch, direction-agnostic.
-        ctx.scene_leaves as f64 + ctx.batch_size as f64
+        // The calibrated GPU cost: a fixed dispatch/readback plus a cheap per-ray
+        // term, direction-agnostic.
+        spatial_query::dispatch::cost::gpu_batch_us(ctx)
     }
     fn raycast_nearest_batch(
         &self,
@@ -217,6 +218,57 @@ fn force_override_wins_over_everything() {
     assert_eq!(d.select(&ctx), BackendKind::Gpu);
     d.force(None);
     assert_eq!(d.select(&ctx), BackendKind::Cpu);
+}
+
+// ---------------------------------------------------------------------------
+// Phase 11: the calibrated cost model flips CPU -> GPU near the measured
+// crossover batch size, and the fixed cost keeps GPU out of tiny batches.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn calibrated_model_crosses_over_in_the_measured_band() {
+    let (_g, bvh) = scene(1000);
+    let d = full_dispatcher(&bvh);
+
+    // The measured crossover of GPU vs sequential CPU on the reference machine was
+    // ~510 rays at 100k leaves and ~3600 at 1k leaves (CROSSOVER.md). For a large
+    // scene the model must stay on CPU for a small batch and switch to GPU for a
+    // large one; the flip is a single-view=batch scattered request with a device.
+    let scattered =
+        |batch: usize, leaves: usize| QueryContext::new(batch, batch, leaves).with_device(true);
+
+    // Large scene, tiny batch: the GPU's fixed cost dominates, so CPU wins.
+    assert_eq!(d.select(&scattered(64, 100_000)), BackendKind::Cpu);
+    // Large scene, large batch: GPU amortizes and wins.
+    assert_eq!(d.select(&scattered(8_000, 100_000)), BackendKind::Gpu);
+
+    // The crossover batch (smallest scattered batch the model routes to GPU) at
+    // 100k leaves falls in the measured 250..2000 band.
+    let crossover = (1..)
+        .map(|k| 1usize << k)
+        .find(|&batch| d.select(&scattered(batch, 100_000)) == BackendKind::Gpu)
+        .unwrap();
+    assert!(
+        (256..=2048).contains(&crossover),
+        "crossover batch {crossover} outside the measured band"
+    );
+}
+
+#[test]
+fn expensive_field_leaves_route_to_gpu_sooner() {
+    let (_g, bvh) = scene(1000);
+    let d = full_dispatcher(&bvh);
+
+    // A mid batch that stays on CPU for cheap analytic leaves (hint = 1): below
+    // the ~510-ray sphere crossover at 100k leaves.
+    let cheap = QueryContext::new(256, 256, 100_000).with_device(true);
+    assert_eq!(d.select(&cheap), BackendKind::Cpu);
+
+    // The same batch of field leaves, whose narrow test marches a density field
+    // (hint = 30), is far more expensive per ray on the CPU, so the GPU's fixed
+    // cost amortizes and it wins at the same batch size.
+    let field = cheap.with_narrow_cost(30.0);
+    assert_eq!(d.select(&field), BackendKind::Gpu);
 }
 
 // ---------------------------------------------------------------------------
