@@ -240,27 +240,31 @@ fn main() {
             .with_border([1.0, 1.0, 1.0, 0.9], 1.5),
         );
         ov.labels.push(
-            LabelItem::new(format!("showing: {}", source.name()))
-                .with_screen_anchor([210.0, 44.0])
+            LabelItem::new(format!("shading from: {}", source.name()))
+                .with_screen_anchor([210.0, 42.0])
                 .with_anchor_align(LabelAnchor::Center)
                 .with_colour([1.0, 1.0, 1.0, 1.0])
                 .with_font_size(22.0),
         );
+        // Both backends run every frame; the one currently driving the picture is
+        // bracketed. The bracket jumps cpu <-> gpu every few seconds while the
+        // shadow itself stays identical -- that is the point.
+        let cpu_txt = format!("cpu {:.2} ms", cpu_us as f32 / 1000.0);
         let gpu_txt = if gpu_us == 0 {
             "gpu n/a".to_string()
         } else {
             format!("gpu {:.2} ms", gpu_us as f32 / 1000.0)
         };
+        let (cpu_txt, gpu_txt) = match source {
+            Source::Cpu => (format!("[ {cpu_txt} ]"), gpu_txt),
+            Source::Gpu => (cpu_txt, format!("[ {gpu_txt} ]")),
+        };
         ov.labels.push(
-            LabelItem::new(format!(
-                "{} rays -> soft shadow  |  cpu {:.2} ms  |  {gpu_txt}",
-                rays.len(),
-                cpu_us as f32 / 1000.0
-            ))
-            .with_screen_anchor([210.0, 72.0])
-            .with_anchor_align(LabelAnchor::Center)
-            .with_colour([0.95, 0.95, 0.95, 0.9])
-            .with_font_size(13.0),
+            LabelItem::new(format!("{} rays   {cpu_txt}   {gpu_txt}", rays.len()))
+                .with_screen_anchor([210.0, 70.0])
+                .with_anchor_align(LabelAnchor::Center)
+                .with_colour([0.97, 0.97, 0.97, 0.95])
+                .with_font_size(13.0),
         );
     });
 }
