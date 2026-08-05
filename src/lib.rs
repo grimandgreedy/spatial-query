@@ -61,6 +61,6 @@ pub mod query;
 
 // The public surface stays flat: consumers use `spatial_query::Bvh`,
 // `spatial_query::QueryGeometry`, etc., regardless of the internal module tree.
-pub use accel::Bvh;
-pub use maths::{Aabb, Point, Ray, Scalar};
-pub use query::{naive, Hit, LeafHit, QueryFilter, QueryGeometry};
+pub use accel::{Bvh, Tlas};
+pub use maths::{plane_rotation, Aabb, Isometry, Point, Ray, Scalar};
+pub use query::{naive, Hit, InstancedGeometry, LeafHit, QueryFilter, QueryGeometry};

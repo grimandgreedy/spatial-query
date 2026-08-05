@@ -9,8 +9,10 @@
 pub mod filter;
 pub mod geometry;
 pub mod hit;
+pub mod instance;
 pub mod naive;
 
 pub use filter::QueryFilter;
 pub use geometry::QueryGeometry;
 pub use hit::{Hit, LeafHit};
+pub use instance::InstancedGeometry;
