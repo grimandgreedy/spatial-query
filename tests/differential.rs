@@ -75,11 +75,7 @@ impl<const D: usize> QueryGeometry<D> for Balls<D> {
             return None;
         }
         let normal = (ray.at(t) - c).normalize_or_zero();
-        Some(LeafHit {
-            toi: t,
-            normal,
-            sub_object: Some(leaf as u64),
-        })
+        Some(LeafHit::new(t, normal).with_sub_object(leaf as u64))
     }
 }
 

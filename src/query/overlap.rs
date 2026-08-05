@@ -6,7 +6,10 @@
 //! which keeps the accelerated result identical to the naive scan.
 
 /// A single overlap-query result: an object that intersects the query region.
+///
+/// `#[non_exhaustive]` so later fields can be added without breaking callers.
 #[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
 pub struct Overlap<Id> {
     /// The provider's identity for the object.
     pub id: Id,

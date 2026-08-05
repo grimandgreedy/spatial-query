@@ -6,7 +6,11 @@
 //! The fields here are a neutral starting vocabulary; providers may ignore them.
 
 /// A filter passed through every query to the provider's `accepts` hook.
+///
+/// Start from [`QueryFilter::default`] and set fields as needed. The struct is
+/// `#[non_exhaustive]` so the filter vocabulary can grow without breaking callers.
 #[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
 pub struct QueryFilter {
     /// A layer bitmask. Its meaning is the provider's; the core only carries it.
     pub layer_mask: u64,

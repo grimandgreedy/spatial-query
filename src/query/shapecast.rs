@@ -19,7 +19,12 @@ use crate::maths::{Aabb, Point, Ray, Scalar};
 ///
 /// For a hit's `time_of_impact` to read in world units, `dir` should be unit
 /// length; [`new`](Self::new) normalises it.
+///
+/// Build one with [`new`](Self::new) or [`new_unnormalized`](Self::new_unnormalized).
+/// The struct is `#[non_exhaustive]` so the probe descriptor can gain fields
+/// (such as an orientation) without breaking callers.
 #[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
 pub struct ShapeCast<const D: usize> {
     /// Start position of the probe's reference point.
     pub origin: Point<D>,

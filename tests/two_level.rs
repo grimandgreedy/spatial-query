@@ -108,11 +108,7 @@ fn ray_local_box<const D: usize>(
     let sign = if ray.dir[axis] > 0.0 { -1.0 } else { 1.0 };
     let mut n = [0.0; D];
     n[axis] = sign;
-    Some(LeafHit {
-        toi: t_min,
-        normal: Point(n),
-        sub_object: None,
-    })
+    Some(LeafHit::new(t_min, Point(n)))
 }
 
 fn random_boxes<const D: usize>(rng: &mut Rng, n: usize) -> OrientedBoxes<D> {
@@ -396,11 +392,10 @@ impl QueryGeometry<3> for Balls {
         if t < 0.0 || t > max_toi {
             return None;
         }
-        Some(LeafHit {
-            toi: t,
-            normal: (ray.at(t) - self.centers[leaf]).normalize_or_zero(),
-            sub_object: None,
-        })
+        Some(LeafHit::new(
+            t,
+            (ray.at(t) - self.centers[leaf]).normalize_or_zero(),
+        ))
     }
 }
 

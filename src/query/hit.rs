@@ -8,7 +8,12 @@ use crate::maths::{Point, Scalar};
 /// The core fills in the world hit point (`ray.at(toi)`) and the leaf id; the
 /// provider only reports the impact parameter, the surface normal, and an opaque
 /// sub-object payload.
+///
+/// Build one with [`LeafHit::new`], then optionally [`with_sub_object`](Self::with_sub_object).
+/// The struct is `#[non_exhaustive]` so later query kinds can add fields without
+/// breaking providers.
 #[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
 pub struct LeafHit<const D: usize> {
     /// Distance along the ray direction to the hit (world units for a unit ray).
     pub toi: Scalar,
@@ -19,8 +24,28 @@ pub struct LeafHit<const D: usize> {
     pub sub_object: Option<u64>,
 }
 
+impl<const D: usize> LeafHit<D> {
+    /// A hit at `toi` with surface `normal` and no sub-object.
+    #[inline]
+    pub fn new(toi: Scalar, normal: Point<D>) -> Self {
+        LeafHit {
+            toi,
+            normal,
+            sub_object: None,
+        }
+    }
+
+    /// Attach an opaque provider-defined sub-object id.
+    #[inline]
+    pub fn with_sub_object(mut self, sub_object: u64) -> Self {
+        self.sub_object = Some(sub_object);
+        self
+    }
+}
+
 /// A single ray-query hit against the world.
 #[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
 pub struct Hit<Id, const D: usize> {
     /// The provider's identity for the object that was hit.
     pub id: Id,

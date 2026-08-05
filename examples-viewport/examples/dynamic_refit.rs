@@ -308,9 +308,5 @@ fn ray_local_box(ray: &Ray<3>, half: Point<3>, max_toi: f32) -> Option<LeafHit<3
     let sign = if ray.dir[axis] > 0.0 { -1.0 } else { 1.0 };
     let mut n = [0.0; 3];
     n[axis] = sign;
-    Some(LeafHit {
-        toi: t_min,
-        normal: Point(n),
-        sub_object: None,
-    })
+    Some(LeafHit::new(t_min, Point(n)))
 }

@@ -101,11 +101,11 @@ impl QueryGeometry<3> for Balls {
         let c = self.centers[leaf];
         let sum = self.radii[leaf] + PROBE_RADIUS;
         let ray = Ray::new_unnormalized(cast.origin, cast.dir);
-        let lh = ray_ball(&ray, c, sum, max_toi)?;
+        let mut lh = ray_ball(&ray, c, sum, max_toi)?;
         // The contact normal points from the static ball's centre to the probe's
         // centre at the moment of contact.
-        let normal = (cast.at(lh.toi) - c).normalize_or_zero();
-        Some(LeafHit { normal, ..lh })
+        lh.normal = (cast.at(lh.toi) - c).normalize_or_zero();
+        Some(lh)
     }
     // Exact ball-vs-box overlap: nearest point of the box to the centre within
     // the radius.
@@ -133,11 +133,7 @@ fn ray_ball(ray: &Ray<3>, center: Point<3>, radius: Scalar, max_toi: Scalar) -> 
         return None;
     }
     let normal = (ray.at(t) - center).normalize_or_zero();
-    Some(LeafHit {
-        toi: t,
-        normal,
-        sub_object: None,
-    })
+    Some(LeafHit::new(t, normal))
 }
 
 /// A ball-shaped probe from `origin` along `dir`.
@@ -334,9 +330,9 @@ impl InstancedGeometry<3> for BallInstances {
         let c = self.center(i);
         let sum = self.radii[i] + PROBE_RADIUS;
         let ray = Ray::new_unnormalized(cast.origin, cast.dir);
-        let lh = ray_ball(&ray, c, sum, max_toi)?;
-        let normal = (cast.at(lh.toi) - c).normalize_or_zero();
-        Some(LeafHit { normal, ..lh })
+        let mut lh = ray_ball(&ray, c, sum, max_toi)?;
+        lh.normal = (cast.at(lh.toi) - c).normalize_or_zero();
+        Some(lh)
     }
     fn test_overlap(&self, i: usize, region: &Aabb<3>) -> bool {
         point_to_aabb(self.center(i), region.min, region.max) <= self.radii[i]

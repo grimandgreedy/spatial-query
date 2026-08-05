@@ -41,7 +41,7 @@
 //!         let t = -b - disc.sqrt();
 //!         if t < 0.0 || t > max_toi { return None; }
 //!         let normal = (ray.at(t) - self.0[leaf]).normalize_or_zero();
-//!         Some(LeafHit { toi: t, normal, sub_object: None })
+//!         Some(LeafHit::new(t, normal))
 //!     }
 //! }
 //!

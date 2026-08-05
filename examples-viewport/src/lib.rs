@@ -117,11 +117,7 @@ impl QueryGeometry<3> for SphereScene {
             return None;
         }
         let normal = (ray.at(t) - c).normalize_or_zero();
-        Some(LeafHit {
-            toi: t,
-            normal,
-            sub_object: None,
-        })
+        Some(LeafHit::new(t, normal))
     }
 
     // A ball probe swept against a static sphere is a ray against a sphere grown
@@ -150,11 +146,7 @@ impl QueryGeometry<3> for SphereScene {
             return None;
         }
         let normal = (cast.at(t) - c).normalize_or_zero();
-        Some(LeafHit {
-            toi: t,
-            normal,
-            sub_object: None,
-        })
+        Some(LeafHit::new(t, normal))
     }
 
     // Exact sphere-vs-box overlap: the box's nearest point to the centre is
