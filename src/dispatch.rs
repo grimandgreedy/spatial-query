@@ -22,15 +22,34 @@ use crate::query::hit::Hit;
 /// in the same order.
 pub type BatchHits<Id, const D: usize, S> = Vec<Option<Hit<Id, D, S>>>;
 
-/// Which backend answered, or would answer, a batch.
+/// The three backend classes the cost model reasons about.
+///
+/// This crate implements only [`Cpu`](BackendKind::Cpu) (via [`CpuBackend`]).
+/// The other two are named and cost-modelled here but implemented elsewhere and
+/// registered through [`QueryBackend`]: `DrawPass` by a rendering consumer's
+/// adapter, `Gpu` by the optional compute backend. Naming them lets the model
+/// weigh their distinctive cost shapes without depending on either; a consumer
+/// that never registers one simply never has it selected.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum BackendKind {
-    /// Deterministic CPU traversal. Always available.
+    /// Deterministic CPU traversal. The only backend this crate implements, and
+    /// the always-available fallback that deterministic and headless requests
+    /// pin to.
     Cpu,
-    /// A consumer-registered draw-pass picker (e.g. a GPU ID-buffer). Resolves
-    /// one view direction per render pass.
+    /// A consumer-registered draw-pass picker; the canonical example is a
+    /// renderer's GPU ID-buffer pick (render object ids to an offscreen target,
+    /// read back the pixel under the cursor). It resolves one view direction per
+    /// render pass, so it is nearly free for a single view because it rides the
+    /// frame's existing draw, and costs another pass for each extra direction.
+    /// That makes it win for a single cursor click or a rectangle select on a
+    /// large scene, and lose as the number of distinct directions grows. Not
+    /// implemented here; a rendering consumer supplies and registers it.
     DrawPass,
-    /// A GPU-compute batched traversal.
+    /// A GPU-compute batched traversal: upload the tree and geometry once, then
+    /// dispatch over the whole ray batch, direction-agnostic. It wins for large
+    /// batches of arbitrary rays where a draw-pass would need many passes and the
+    /// CPU walk is linear in the batch. Not implemented here; it is the optional
+    /// device-side backend behind the `gpu` feature.
     Gpu,
 }
 
