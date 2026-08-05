@@ -70,11 +70,11 @@ impl<const D: usize> Tlas<D> {
         ray: &Ray<D>,
         max_toi: Scalar,
         filter: &QueryFilter,
-    ) -> Option<Hit<S::Id, D>> {
+    ) -> Option<Hit<S::Id, D, S::SubObject>> {
         if self.nodes.is_empty() {
             return None;
         }
-        let mut best: Option<Hit<S::Id, D>> = None;
+        let mut best: Option<Hit<S::Id, D, S::SubObject>> = None;
         let mut limit = max_toi;
         // TODO: allocates a traversal stack per query. A reusable scratch buffer
         // would avoid the allocation in hot query loops.
@@ -119,7 +119,7 @@ impl<const D: usize> Tlas<D> {
         ray: &Ray<D>,
         max_toi: Scalar,
         filter: &QueryFilter,
-    ) -> Vec<Hit<S::Id, D>> {
+    ) -> Vec<Hit<S::Id, D, S::SubObject>> {
         let mut hits = Vec::new();
         if self.nodes.is_empty() {
             return hits;
@@ -158,11 +158,11 @@ impl<const D: usize> Tlas<D> {
         cast: &ShapeCast<D>,
         max_toi: Scalar,
         filter: &QueryFilter,
-    ) -> Option<Hit<S::Id, D>> {
+    ) -> Option<Hit<S::Id, D, S::SubObject>> {
         if self.nodes.is_empty() {
             return None;
         }
-        let mut best: Option<Hit<S::Id, D>> = None;
+        let mut best: Option<Hit<S::Id, D, S::SubObject>> = None;
         let mut limit = max_toi;
         let mut stack: Vec<u32> = vec![0];
         while let Some(ni) = stack.pop() {
@@ -205,7 +205,7 @@ impl<const D: usize> Tlas<D> {
         cast: &ShapeCast<D>,
         max_toi: Scalar,
         filter: &QueryFilter,
-    ) -> Vec<Hit<S::Id, D>> {
+    ) -> Vec<Hit<S::Id, D, S::SubObject>> {
         let mut hits = Vec::new();
         if self.nodes.is_empty() {
             return hits;
@@ -288,7 +288,7 @@ fn shapecast_instance<const D: usize, S: InstancedGeometry<D>>(
     i: usize,
     cast: &ShapeCast<D>,
     max_toi: Scalar,
-) -> Option<Hit<S::Id, D>> {
+) -> Option<Hit<S::Id, D, S::SubObject>> {
     let lh = scene.test_shape_cast(i, cast, max_toi)?;
     Some(Hit {
         id: scene.id(i),
@@ -310,7 +310,7 @@ fn test_instance<const D: usize, S: InstancedGeometry<D>>(
     i: usize,
     ray: &Ray<D>,
     max_toi: Scalar,
-) -> Option<Hit<S::Id, D>> {
+) -> Option<Hit<S::Id, D, S::SubObject>> {
     let iso = scene.transform(i);
     // The rotation is orthonormal, so the local direction stays unit length and
     // the local time-of-impact is the world time-of-impact.

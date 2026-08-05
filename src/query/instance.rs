@@ -20,6 +20,11 @@ pub trait InstancedGeometry<const D: usize> {
     /// The consumer's identity for an instance.
     type Id: Copy;
 
+    /// The consumer's sub-object identity returned from a narrow test (a face,
+    /// vertex, cell, particle index, ...). Instances that report only the object
+    /// set this to `()`. The core stores and returns it without interpretation.
+    type SubObject: Copy;
+
     /// The number of instances. Instance indices are `0..instance_count`.
     fn instance_count(&self) -> usize;
 
@@ -37,7 +42,12 @@ pub trait InstancedGeometry<const D: usize> {
     /// which equal world units for a rigid transform. The returned normal is in
     /// local space; the tree rotates it back to world. The tree has already
     /// established that the world ray meets the instance's world AABB.
-    fn test_ray_local(&self, i: usize, local_ray: &Ray<D>, max_toi: Scalar) -> Option<LeafHit<D>>;
+    fn test_ray_local(
+        &self,
+        i: usize,
+        local_ray: &Ray<D>,
+        max_toi: Scalar,
+    ) -> Option<LeafHit<D, Self::SubObject>>;
 
     /// Test the swept probe of `cast` against instance `i`. Return the nearest
     /// contact at or before `max_toi`, or `None`, with a world-space contact
@@ -56,7 +66,7 @@ pub trait InstancedGeometry<const D: usize> {
         _i: usize,
         _cast: &ShapeCast<D>,
         _max_toi: Scalar,
-    ) -> Option<LeafHit<D>> {
+    ) -> Option<LeafHit<D, Self::SubObject>> {
         None
     }
 

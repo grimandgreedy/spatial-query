@@ -53,11 +53,11 @@ impl<const D: usize> Bvh<D> {
         ray: &Ray<D>,
         max_toi: Scalar,
         filter: &QueryFilter,
-    ) -> Option<Hit<G::Id, D>> {
+    ) -> Option<Hit<G::Id, D, G::SubObject>> {
         if self.nodes.is_empty() {
             return None;
         }
-        let mut best: Option<Hit<G::Id, D>> = None;
+        let mut best: Option<Hit<G::Id, D, G::SubObject>> = None;
         let mut limit = max_toi;
         // TODO: allocates a traversal stack per query. A reusable scratch buffer
         // would avoid the allocation in hot query loops.
@@ -102,7 +102,7 @@ impl<const D: usize> Bvh<D> {
         ray: &Ray<D>,
         max_toi: Scalar,
         filter: &QueryFilter,
-    ) -> Vec<Hit<G::Id, D>> {
+    ) -> Vec<Hit<G::Id, D, G::SubObject>> {
         let mut hits = Vec::new();
         if self.nodes.is_empty() {
             return hits;
@@ -141,11 +141,11 @@ impl<const D: usize> Bvh<D> {
         cast: &ShapeCast<D>,
         max_toi: Scalar,
         filter: &QueryFilter,
-    ) -> Option<Hit<G::Id, D>> {
+    ) -> Option<Hit<G::Id, D, G::SubObject>> {
         if self.nodes.is_empty() {
             return None;
         }
-        let mut best: Option<Hit<G::Id, D>> = None;
+        let mut best: Option<Hit<G::Id, D, G::SubObject>> = None;
         let mut limit = max_toi;
         let mut stack: Vec<u32> = vec![0];
         while let Some(ni) = stack.pop() {
@@ -188,7 +188,7 @@ impl<const D: usize> Bvh<D> {
         cast: &ShapeCast<D>,
         max_toi: Scalar,
         filter: &QueryFilter,
-    ) -> Vec<Hit<G::Id, D>> {
+    ) -> Vec<Hit<G::Id, D, G::SubObject>> {
         let mut hits = Vec::new();
         if self.nodes.is_empty() {
             return hits;

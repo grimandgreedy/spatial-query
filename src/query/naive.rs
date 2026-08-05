@@ -18,8 +18,8 @@ pub(crate) fn assemble_hit<const D: usize, G: QueryGeometry<D>>(
     g: &G,
     ray: &Ray<D>,
     leaf: usize,
-    lh: LeafHit<D>,
-) -> Hit<G::Id, D> {
+    lh: LeafHit<D, G::SubObject>,
+) -> Hit<G::Id, D, G::SubObject> {
     Hit {
         id: g.id(leaf),
         leaf,
@@ -36,8 +36,8 @@ pub fn raycast_nearest<const D: usize, G: QueryGeometry<D>>(
     ray: &Ray<D>,
     max_toi: Scalar,
     filter: &QueryFilter,
-) -> Option<Hit<G::Id, D>> {
-    let mut best: Option<Hit<G::Id, D>> = None;
+) -> Option<Hit<G::Id, D, G::SubObject>> {
+    let mut best: Option<Hit<G::Id, D, G::SubObject>> = None;
     let mut limit = max_toi;
     for leaf in 0..g.leaf_count() {
         if !g.accepts(leaf, filter) {
@@ -67,7 +67,7 @@ pub fn raycast_all<const D: usize, G: QueryGeometry<D>>(
     ray: &Ray<D>,
     max_toi: Scalar,
     filter: &QueryFilter,
-) -> Vec<Hit<G::Id, D>> {
+) -> Vec<Hit<G::Id, D, G::SubObject>> {
     let mut hits = Vec::new();
     for leaf in 0..g.leaf_count() {
         if !g.accepts(leaf, filter) {
@@ -91,8 +91,8 @@ pub(crate) fn assemble_shape_hit<const D: usize, G: QueryGeometry<D>>(
     g: &G,
     cast: &ShapeCast<D>,
     leaf: usize,
-    lh: LeafHit<D>,
-) -> Hit<G::Id, D> {
+    lh: LeafHit<D, G::SubObject>,
+) -> Hit<G::Id, D, G::SubObject> {
     Hit {
         id: g.id(leaf),
         leaf,
@@ -109,8 +109,8 @@ pub fn shapecast_nearest<const D: usize, G: QueryGeometry<D>>(
     cast: &ShapeCast<D>,
     max_toi: Scalar,
     filter: &QueryFilter,
-) -> Option<Hit<G::Id, D>> {
-    let mut best: Option<Hit<G::Id, D>> = None;
+) -> Option<Hit<G::Id, D, G::SubObject>> {
+    let mut best: Option<Hit<G::Id, D, G::SubObject>> = None;
     let mut limit = max_toi;
     for leaf in 0..g.leaf_count() {
         if !g.accepts(leaf, filter) {
@@ -139,7 +139,7 @@ pub fn shapecast_all<const D: usize, G: QueryGeometry<D>>(
     cast: &ShapeCast<D>,
     max_toi: Scalar,
     filter: &QueryFilter,
-) -> Vec<Hit<G::Id, D>> {
+) -> Vec<Hit<G::Id, D, G::SubObject>> {
     let mut hits = Vec::new();
     for leaf in 0..g.leaf_count() {
         if !g.accepts(leaf, filter) {

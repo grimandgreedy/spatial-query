@@ -83,6 +83,7 @@ impl SphereScene {
 
 impl QueryGeometry<3> for SphereScene {
     type Id = usize;
+    type SubObject = ();
 
     fn leaf_count(&self) -> usize {
         self.centers.len()

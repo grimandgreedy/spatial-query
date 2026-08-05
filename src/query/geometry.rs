@@ -20,6 +20,11 @@ pub trait QueryGeometry<const D: usize> {
     /// The consumer's identity for a leaf (a `pick_id`, a `BodyId`, ...).
     type Id: Copy;
 
+    /// The consumer's sub-object identity returned from a narrow test (a face,
+    /// vertex, cell, particle index, ...). Providers that report only the object
+    /// set this to `()`. The core stores and returns it without interpretation.
+    type SubObject: Copy;
+
     /// The number of leaves. Leaf indices are `0..leaf_count`.
     fn leaf_count(&self) -> usize;
 
@@ -32,7 +37,12 @@ pub trait QueryGeometry<const D: usize> {
     /// Test `ray` against `leaf`'s exact geometry. Return the nearest hit at or
     /// before `max_toi`, or `None`. The core has already established that the
     /// ray meets the leaf's AABB.
-    fn test_ray(&self, leaf: usize, ray: &Ray<D>, max_toi: Scalar) -> Option<LeafHit<D>>;
+    fn test_ray(
+        &self,
+        leaf: usize,
+        ray: &Ray<D>,
+        max_toi: Scalar,
+    ) -> Option<LeafHit<D, Self::SubObject>>;
 
     /// Test the swept probe of `cast` against `leaf`'s exact geometry. Return the
     /// nearest contact at or before `max_toi`, or `None`. The returned `toi` is
@@ -46,7 +56,7 @@ pub trait QueryGeometry<const D: usize> {
         _leaf: usize,
         _cast: &ShapeCast<D>,
         _max_toi: Scalar,
-    ) -> Option<LeafHit<D>> {
+    ) -> Option<LeafHit<D, Self::SubObject>> {
         None
     }
 

@@ -46,6 +46,7 @@ struct OrientedBoxes<const D: usize> {
 
 impl<const D: usize> InstancedGeometry<D> for OrientedBoxes<D> {
     type Id = usize;
+    type SubObject = ();
 
     fn instance_count(&self) -> usize {
         self.transforms.len()
@@ -370,6 +371,7 @@ struct Balls {
 
 impl QueryGeometry<3> for Balls {
     type Id = usize;
+    type SubObject = ();
     fn leaf_count(&self) -> usize {
         self.centers.len()
     }

@@ -40,6 +40,9 @@ struct Balls<const D: usize> {
 
 impl<const D: usize> QueryGeometry<D> for Balls<D> {
     type Id = usize;
+    // A non-() sub-object, so the accelerated path is exercised threading a real
+    // payload through at D = 2, 3, and 4.
+    type SubObject = usize;
 
     fn leaf_count(&self) -> usize {
         self.centers.len()
@@ -55,7 +58,7 @@ impl<const D: usize> QueryGeometry<D> for Balls<D> {
         Aabb::new(c - Point::splat(r), c + Point::splat(r))
     }
 
-    fn test_ray(&self, leaf: usize, ray: &Ray<D>, max_toi: Scalar) -> Option<LeafHit<D>> {
+    fn test_ray(&self, leaf: usize, ray: &Ray<D>, max_toi: Scalar) -> Option<LeafHit<D, usize>> {
         let c = self.centers[leaf];
         let r = self.radii[leaf];
         let oc = ray.origin - c;
@@ -75,7 +78,7 @@ impl<const D: usize> QueryGeometry<D> for Balls<D> {
             return None;
         }
         let normal = (ray.at(t) - c).normalize_or_zero();
-        Some(LeafHit::new(t, normal).with_sub_object(leaf as u64))
+        Some(LeafHit::new(t, normal).with_sub_object(leaf))
     }
 }
 

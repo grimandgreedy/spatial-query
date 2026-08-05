@@ -26,6 +26,7 @@
 //!
 //! impl QueryGeometry<3> for Balls {
 //!     type Id = usize;
+//!     type SubObject = ();
 //!     fn leaf_count(&self) -> usize { self.0.len() }
 //!     fn id(&self, leaf: usize) -> usize { leaf }
 //!     fn world_aabb(&self, leaf: usize) -> Aabb<3> {

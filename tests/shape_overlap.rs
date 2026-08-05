@@ -73,6 +73,7 @@ fn point_to_aabb(p: Point<3>, min: Point<3>, max: Point<3>) -> Scalar {
 
 impl QueryGeometry<3> for Balls {
     type Id = usize;
+    type SubObject = ();
 
     fn leaf_count(&self) -> usize {
         self.centers.len()
@@ -305,6 +306,7 @@ impl BallInstances {
 
 impl InstancedGeometry<3> for BallInstances {
     type Id = usize;
+    type SubObject = ();
 
     fn instance_count(&self) -> usize {
         self.transforms.len()

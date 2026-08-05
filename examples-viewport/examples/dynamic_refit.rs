@@ -240,6 +240,7 @@ impl Boxes {
 
 impl InstancedGeometry<3> for Boxes {
     type Id = usize;
+    type SubObject = ();
 
     fn instance_count(&self) -> usize {
         self.len()
