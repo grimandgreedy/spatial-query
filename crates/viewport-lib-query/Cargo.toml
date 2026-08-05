@@ -1,0 +1,14 @@
+[package]
+name = "viewport-lib-query"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Reference adapter making a viewport-lib Scene queryable through spatial-query (Phase 9, thin adapter)."
+
+[dependencies]
+# The adapter carries both the core and viewport-lib; the core itself stays
+# viewport-free. glam is pinned to viewport-lib's exact version so transforms
+# interoperate.
+spatial-query = { path = "../spatial-query" }
+viewport-lib = { path = "../../../viewport-lib" }
+glam = "=0.30.10"

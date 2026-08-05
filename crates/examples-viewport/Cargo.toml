@@ -8,8 +8,9 @@ description = "Visual examples for spatial-query, rendered with viewport-lib's V
 [dependencies]
 # glam is pinned to viewport-lib's exact version so that `Mat4` and `Vec3`
 # interoperate. The core never depends on glam.
-spatial-query = { path = ".." }
-viewport-lib = { path = "../../viewport-lib", features = ["app"] }
+spatial-query = { path = "../spatial-query" }
+viewport-lib-query = { path = "../viewport-lib-query" }
+viewport-lib = { path = "../../../viewport-lib", features = ["app"] }
 glam = "=0.30.10"
 
 [features]
