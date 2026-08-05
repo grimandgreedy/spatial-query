@@ -84,6 +84,30 @@ pub fn raycast_all<const D: usize, G: QueryGeometry<D>>(
     hits
 }
 
+/// Every crossing of `ray` with every leaf within `max_toi`, sorted
+/// nearest-first (then by leaf). A concave or self-intersecting leaf can appear
+/// more than once.
+pub fn raycast_crossings<const D: usize, G: QueryGeometry<D>>(
+    g: &G,
+    ray: &Ray<D>,
+    max_toi: Scalar,
+    filter: &QueryFilter,
+) -> Vec<Hit<G::Id, D, G::SubObject>> {
+    let mut hits = Vec::new();
+    for leaf in 0..g.leaf_count() {
+        if !g.accepts(leaf, filter) {
+            continue;
+        }
+        if Aabb::ray_intersect(g.world_aabb(leaf), ray, max_toi).is_none() {
+            continue;
+        }
+        let mut push = |lh| hits.push(assemble_hit(g, ray, leaf, lh));
+        g.test_ray_crossings(leaf, ray, max_toi, &mut push);
+    }
+    hits.sort_by(hit_ordering);
+    hits
+}
+
 /// Assemble a [`Hit`] from a shape-cast [`LeafHit`], placing the world point at
 /// the probe's reference position at contact.
 #[inline]

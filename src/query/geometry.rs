@@ -44,6 +44,27 @@ pub trait QueryGeometry<const D: usize> {
         max_toi: Scalar,
     ) -> Option<LeafHit<D, Self::SubObject>>;
 
+    /// Report every crossing of `ray` with `leaf`'s exact geometry within
+    /// `max_toi`, by calling `out` once per crossing. A concave or
+    /// self-intersecting leaf can cross the ray several times; a convex one
+    /// crosses at most twice (entry and exit). Order does not matter; the core
+    /// sorts the collected crossings by `time_of_impact` then leaf.
+    ///
+    /// The default reports only the single nearest hit from
+    /// [`test_ray`](Self::test_ray), so existing providers keep working;
+    /// override to report all crossings.
+    fn test_ray_crossings(
+        &self,
+        leaf: usize,
+        ray: &Ray<D>,
+        max_toi: Scalar,
+        out: &mut dyn FnMut(LeafHit<D, Self::SubObject>),
+    ) {
+        if let Some(lh) = self.test_ray(leaf, ray, max_toi) {
+            out(lh);
+        }
+    }
+
     /// Test the swept probe of `cast` against `leaf`'s exact geometry. Return the
     /// nearest contact at or before `max_toi`, or `None`. The returned `toi` is
     /// the sweep distance to contact, and the normal is the world-space contact

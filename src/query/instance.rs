@@ -49,6 +49,24 @@ pub trait InstancedGeometry<const D: usize> {
         max_toi: Scalar,
     ) -> Option<LeafHit<D, Self::SubObject>>;
 
+    /// Report every crossing of the local-space `local_ray` with instance `i`
+    /// within `max_toi`, by calling `out` once per crossing. Normals are in
+    /// local space; the tree lifts them to world. Order does not matter.
+    ///
+    /// The default reports only the single hit from
+    /// [`test_ray_local`](Self::test_ray_local); override for all crossings.
+    fn test_ray_crossings_local(
+        &self,
+        i: usize,
+        local_ray: &Ray<D>,
+        max_toi: Scalar,
+        out: &mut dyn FnMut(LeafHit<D, Self::SubObject>),
+    ) {
+        if let Some(lh) = self.test_ray_local(i, local_ray, max_toi) {
+            out(lh);
+        }
+    }
+
     /// Test the swept probe of `cast` against instance `i`. Return the nearest
     /// contact at or before `max_toi`, or `None`, with a world-space contact
     /// normal.

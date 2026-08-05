@@ -134,6 +134,46 @@ impl<const D: usize> Bvh<D> {
         hits
     }
 
+    /// Every crossing of `ray` with the leaves within `max_toi`, sorted
+    /// nearest-first (then leaf). A concave or self-intersecting leaf can appear
+    /// more than once; there is no best-toi pruning, so the whole ray is walked.
+    pub fn raycast_crossings<G: QueryGeometry<D>>(
+        &self,
+        g: &G,
+        ray: &Ray<D>,
+        max_toi: Scalar,
+        filter: &QueryFilter,
+    ) -> Vec<Hit<G::Id, D, G::SubObject>> {
+        let mut hits = Vec::new();
+        if self.nodes.is_empty() {
+            return hits;
+        }
+        let mut stack: Vec<u32> = vec![0];
+        while let Some(ni) = stack.pop() {
+            let node = self.nodes[ni as usize];
+            if node.bounds.ray_intersect(ray, max_toi).is_none() {
+                continue;
+            }
+            if node.is_leaf() {
+                let start = node.child_a as usize;
+                let end = start + node.prim_count as usize;
+                for &pi in &self.prim_indices[start..end] {
+                    let leaf = pi as usize;
+                    if !g.accepts(leaf, filter) {
+                        continue;
+                    }
+                    let mut push = |lh| hits.push(assemble_hit(g, ray, leaf, lh));
+                    g.test_ray_crossings(leaf, ray, max_toi, &mut push);
+                }
+            } else {
+                stack.push(node.child_a);
+                stack.push(node.child_b);
+            }
+        }
+        hits.sort_by(hit_ordering);
+        hits
+    }
+
     /// Nearest shape-cast contact within `max_toi`.
     pub fn shapecast_nearest<G: QueryGeometry<D>>(
         &self,

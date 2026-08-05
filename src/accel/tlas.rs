@@ -13,7 +13,7 @@
 use super::tree::{self, Node};
 use crate::maths::{Aabb, Ray, Scalar};
 use crate::query::filter::QueryFilter;
-use crate::query::hit::{hit_ordering, Hit};
+use crate::query::hit::{hit_ordering, Hit, LeafHit};
 use crate::query::instance::InstancedGeometry;
 use crate::query::overlap::Overlap;
 use crate::query::shapecast::ShapeCast;
@@ -141,6 +141,61 @@ impl<const D: usize> Tlas<D> {
                     if let Some(hit) = test_instance(scene, i, ray, max_toi) {
                         hits.push(hit);
                     }
+                }
+            } else {
+                stack.push(node.child_a);
+                stack.push(node.child_b);
+            }
+        }
+        hits.sort_by(hit_ordering);
+        hits
+    }
+
+    /// Every crossing of the world-space `ray` with the instances within
+    /// `max_toi`, sorted nearest-first (then instance). A concave or
+    /// self-intersecting instance can appear more than once; the whole ray is
+    /// walked with no best-toi pruning.
+    pub fn raycast_crossings<S: InstancedGeometry<D>>(
+        &self,
+        scene: &S,
+        ray: &Ray<D>,
+        max_toi: Scalar,
+        filter: &QueryFilter,
+    ) -> Vec<Hit<S::Id, D, S::SubObject>> {
+        let mut hits = Vec::new();
+        if self.nodes.is_empty() {
+            return hits;
+        }
+        let mut stack: Vec<u32> = vec![0];
+        while let Some(ni) = stack.pop() {
+            let node = self.nodes[ni as usize];
+            if node.bounds.ray_intersect(ray, max_toi).is_none() {
+                continue;
+            }
+            if node.is_leaf() {
+                let start = node.child_a as usize;
+                let end = start + node.prim_count as usize;
+                for &ii in &self.instance_indices[start..end] {
+                    let i = ii as usize;
+                    if !scene.accepts(i, filter) {
+                        continue;
+                    }
+                    let iso = scene.transform(i);
+                    let local = Ray::new_unnormalized(
+                        iso.inverse_transform_point(ray.origin),
+                        iso.inverse_transform_vector(ray.dir),
+                    );
+                    let mut push = |lh: LeafHit<D, S::SubObject>| {
+                        hits.push(Hit {
+                            id: scene.id(i),
+                            leaf: i,
+                            time_of_impact: lh.toi,
+                            point: ray.at(lh.toi),
+                            normal: iso.transform_vector(lh.normal),
+                            sub_object: lh.sub_object,
+                        });
+                    };
+                    scene.test_ray_crossings_local(i, &local, max_toi, &mut push);
                 }
             } else {
                 stack.push(node.child_a);
