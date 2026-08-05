@@ -14,7 +14,9 @@ use std::rc::Rc;
 use std::time::Instant;
 
 use glam::{Mat3, Mat4, Quat, Vec3};
-use spatial_query::{Aabb, InstancedGeometry, Isometry, LeafHit, Point, QueryFilter, Ray, Tlas};
+use spatial_query::{
+    Aabb, InstancedGeometry, Isometry, LeafHit, Point, QueryFilter, QueryStats, Ray, Tlas,
+};
 use spatial_query_viewport_examples::{sweep_ray, to_point, to_vec3};
 use viewport_lib::{primitives, AppConfig, Material, NodeId, ViewportApp};
 
@@ -117,9 +119,18 @@ fn main() {
                 let _ = tlas.raycast_nearest(boxes, &ray, MAX_TOI, &QueryFilter::default());
             }
             let query_us = t.elapsed().as_micros();
+            // Structural stats and the per-query counters for one cast, so the
+            // timing above is explainable rather than merely a number.
+            let ts = tlas.stats();
+            let mut qs = QueryStats::new();
+            let _ = tlas.raycast_nearest_stats(boxes, &ray, MAX_TOI, &QueryFilter::default(), &mut qs);
             println!(
-                "{} boxes | refit {refit_us} us | rebuild {rebuild_us} us | 1000 nearest queries {query_us} us",
+                "{} boxes | nodes {} depth {} | refit {refit_us} us | rebuild {rebuild_us} us | 1000 nearest {query_us} us | per cast: {} nodes, {} narrow tests",
                 boxes.len(),
+                ts.node_count,
+                ts.max_depth,
+                qs.nodes_visited,
+                qs.narrow_tests,
             );
         }
 

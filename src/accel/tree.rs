@@ -74,6 +74,30 @@ pub(crate) fn refit<const D: usize>(
     }
 }
 
+/// Structural counts over a node array: `(leaf_count, prim_count, max_depth)`.
+/// Depth is the longest root-to-leaf path in nodes. The build guarantees every
+/// child has a higher index than its parent, so a single reverse pass computes
+/// each node's depth after its children.
+pub(crate) fn structural<const D: usize>(nodes: &[Node<D>]) -> (usize, usize, usize) {
+    if nodes.is_empty() {
+        return (0, 0, 0);
+    }
+    let mut depth = vec![0usize; nodes.len()];
+    let mut leaf_count = 0;
+    let mut prim_count = 0;
+    for ni in (0..nodes.len()).rev() {
+        let node = nodes[ni];
+        if node.is_leaf() {
+            leaf_count += 1;
+            prim_count += node.prim_count as usize;
+            depth[ni] = 1;
+        } else {
+            depth[ni] = 1 + depth[node.child_a as usize].max(depth[node.child_b as usize]);
+        }
+    }
+    (leaf_count, prim_count, depth[0])
+}
+
 /// The sum of interior-node surface measures. Used as a proxy for tree quality:
 /// after a refit spreads the boxes out, this grows, and a large enough increase
 /// over the value at the last rebuild signals that a rebuild would pay off.
@@ -123,6 +147,8 @@ fn build_recursive<const D: usize>(
         return node_index;
     }
 
+    // TODO: this is a median split. A surface-area-heuristic split would build a
+    // higher-quality tree for uneven distributions, at some build-time cost.
     indices[start as usize..end as usize]
         .sort_by(|&a, &b| centroids[a as usize][axis].total_cmp(&centroids[b as usize][axis]));
     let mid = start + count / 2;

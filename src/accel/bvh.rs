@@ -9,6 +9,7 @@
 //! stay the same in number, [`Bvh::refit`] updates the bounds in place instead
 //! of rebuilding the tree.
 
+use super::stats::{NoStats, Observe, QueryStats, TreeStats};
 use super::tree::{self, Node};
 use crate::maths::{Aabb, Ray, Scalar};
 use crate::query::filter::QueryFilter;
@@ -54,6 +55,29 @@ impl<const D: usize> Bvh<D> {
         max_toi: Scalar,
         filter: &QueryFilter,
     ) -> Option<Hit<G::Id, D, G::SubObject>> {
+        self.raycast_nearest_impl(g, ray, max_toi, filter, NoStats)
+    }
+
+    /// Nearest hit along `ray`, also accumulating traversal counts into `stats`.
+    pub fn raycast_nearest_stats<G: QueryGeometry<D>>(
+        &self,
+        g: &G,
+        ray: &Ray<D>,
+        max_toi: Scalar,
+        filter: &QueryFilter,
+        stats: &mut QueryStats,
+    ) -> Option<Hit<G::Id, D, G::SubObject>> {
+        self.raycast_nearest_impl(g, ray, max_toi, filter, stats)
+    }
+
+    fn raycast_nearest_impl<G: QueryGeometry<D>, O: Observe>(
+        &self,
+        g: &G,
+        ray: &Ray<D>,
+        max_toi: Scalar,
+        filter: &QueryFilter,
+        mut obs: O,
+    ) -> Option<Hit<G::Id, D, G::SubObject>> {
         if self.nodes.is_empty() {
             return None;
         }
@@ -64,6 +88,8 @@ impl<const D: usize> Bvh<D> {
         let mut stack: Vec<u32> = vec![0];
         while let Some(ni) = stack.pop() {
             let node = self.nodes[ni as usize];
+            obs.node();
+            obs.aabb();
             match node.bounds.ray_intersect(ray, limit) {
                 Some((t_enter, _)) if t_enter <= limit => {}
                 _ => continue,
@@ -76,7 +102,9 @@ impl<const D: usize> Bvh<D> {
                     if !g.accepts(leaf, filter) {
                         continue;
                     }
+                    obs.narrow();
                     if let Some(lh) = g.test_ray(leaf, ray, limit) {
+                        obs.hit();
                         let hit = assemble_hit(g, ray, leaf, lh);
                         match &best {
                             Some(prev) if hit_ordering(prev, &hit).is_le() => {}
@@ -103,6 +131,29 @@ impl<const D: usize> Bvh<D> {
         max_toi: Scalar,
         filter: &QueryFilter,
     ) -> Vec<Hit<G::Id, D, G::SubObject>> {
+        self.raycast_all_impl(g, ray, max_toi, filter, NoStats)
+    }
+
+    /// All hits along `ray`, also accumulating traversal counts into `stats`.
+    pub fn raycast_all_stats<G: QueryGeometry<D>>(
+        &self,
+        g: &G,
+        ray: &Ray<D>,
+        max_toi: Scalar,
+        filter: &QueryFilter,
+        stats: &mut QueryStats,
+    ) -> Vec<Hit<G::Id, D, G::SubObject>> {
+        self.raycast_all_impl(g, ray, max_toi, filter, stats)
+    }
+
+    fn raycast_all_impl<G: QueryGeometry<D>, O: Observe>(
+        &self,
+        g: &G,
+        ray: &Ray<D>,
+        max_toi: Scalar,
+        filter: &QueryFilter,
+        mut obs: O,
+    ) -> Vec<Hit<G::Id, D, G::SubObject>> {
         let mut hits = Vec::new();
         if self.nodes.is_empty() {
             return hits;
@@ -110,6 +161,8 @@ impl<const D: usize> Bvh<D> {
         let mut stack: Vec<u32> = vec![0];
         while let Some(ni) = stack.pop() {
             let node = self.nodes[ni as usize];
+            obs.node();
+            obs.aabb();
             if node.bounds.ray_intersect(ray, max_toi).is_none() {
                 continue;
             }
@@ -121,7 +174,9 @@ impl<const D: usize> Bvh<D> {
                     if !g.accepts(leaf, filter) {
                         continue;
                     }
+                    obs.narrow();
                     if let Some(lh) = g.test_ray(leaf, ray, max_toi) {
+                        obs.hit();
                         hits.push(assemble_hit(g, ray, leaf, lh));
                     }
                 }
@@ -144,6 +199,29 @@ impl<const D: usize> Bvh<D> {
         max_toi: Scalar,
         filter: &QueryFilter,
     ) -> Vec<Hit<G::Id, D, G::SubObject>> {
+        self.raycast_crossings_impl(g, ray, max_toi, filter, NoStats)
+    }
+
+    /// Every crossing of `ray`, also accumulating traversal counts into `stats`.
+    pub fn raycast_crossings_stats<G: QueryGeometry<D>>(
+        &self,
+        g: &G,
+        ray: &Ray<D>,
+        max_toi: Scalar,
+        filter: &QueryFilter,
+        stats: &mut QueryStats,
+    ) -> Vec<Hit<G::Id, D, G::SubObject>> {
+        self.raycast_crossings_impl(g, ray, max_toi, filter, stats)
+    }
+
+    fn raycast_crossings_impl<G: QueryGeometry<D>, O: Observe>(
+        &self,
+        g: &G,
+        ray: &Ray<D>,
+        max_toi: Scalar,
+        filter: &QueryFilter,
+        mut obs: O,
+    ) -> Vec<Hit<G::Id, D, G::SubObject>> {
         let mut hits = Vec::new();
         if self.nodes.is_empty() {
             return hits;
@@ -151,6 +229,8 @@ impl<const D: usize> Bvh<D> {
         let mut stack: Vec<u32> = vec![0];
         while let Some(ni) = stack.pop() {
             let node = self.nodes[ni as usize];
+            obs.node();
+            obs.aabb();
             if node.bounds.ray_intersect(ray, max_toi).is_none() {
                 continue;
             }
@@ -162,7 +242,11 @@ impl<const D: usize> Bvh<D> {
                     if !g.accepts(leaf, filter) {
                         continue;
                     }
-                    let mut push = |lh| hits.push(assemble_hit(g, ray, leaf, lh));
+                    obs.narrow();
+                    let mut push = |lh| {
+                        obs.hit();
+                        hits.push(assemble_hit(g, ray, leaf, lh));
+                    };
                     g.test_ray_crossings(leaf, ray, max_toi, &mut push);
                 }
             } else {
@@ -305,5 +389,19 @@ impl<const D: usize> Bvh<D> {
     /// The number of nodes in the tree.
     pub fn node_count(&self) -> usize {
         self.nodes.len()
+    }
+
+    /// The tree's current structural statistics, computed on demand.
+    pub fn stats(&self) -> TreeStats {
+        let (leaf_count, prim_count, max_depth) = tree::structural(&self.nodes);
+        TreeStats {
+            node_count: self.nodes.len(),
+            leaf_count,
+            prim_count,
+            max_depth,
+            quality: tree::interior_surface_sum(&self.nodes),
+            bytes: self.nodes.len() * core::mem::size_of::<Node<D>>()
+                + self.prim_indices.len() * core::mem::size_of::<u32>(),
+        }
     }
 }

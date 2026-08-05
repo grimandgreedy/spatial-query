@@ -10,6 +10,7 @@
 //! rebuilding. After enough motion the tree quality drifts;
 //! [`Tlas::needs_rebuild`] reports when a rebuild would pay off.
 
+use super::stats::{NoStats, Observe, QueryStats, TreeStats};
 use super::tree::{self, Node};
 use crate::maths::{Aabb, Ray, Scalar};
 use crate::query::filter::QueryFilter;
@@ -63,6 +64,20 @@ impl<const D: usize> Tlas<D> {
         self.nodes.len()
     }
 
+    /// The top-level tree's current structural statistics, computed on demand.
+    pub fn stats(&self) -> TreeStats {
+        let (leaf_count, prim_count, max_depth) = tree::structural(&self.nodes);
+        TreeStats {
+            node_count: self.nodes.len(),
+            leaf_count,
+            prim_count,
+            max_depth,
+            quality: tree::interior_surface_sum(&self.nodes),
+            bytes: self.nodes.len() * core::mem::size_of::<Node<D>>()
+                + self.instance_indices.len() * core::mem::size_of::<u32>(),
+        }
+    }
+
     /// Nearest hit along the world-space `ray` within `max_toi`.
     pub fn raycast_nearest<S: InstancedGeometry<D>>(
         &self,
@@ -70,6 +85,29 @@ impl<const D: usize> Tlas<D> {
         ray: &Ray<D>,
         max_toi: Scalar,
         filter: &QueryFilter,
+    ) -> Option<Hit<S::Id, D, S::SubObject>> {
+        self.raycast_nearest_impl(scene, ray, max_toi, filter, NoStats)
+    }
+
+    /// Nearest hit along `ray`, also accumulating traversal counts into `stats`.
+    pub fn raycast_nearest_stats<S: InstancedGeometry<D>>(
+        &self,
+        scene: &S,
+        ray: &Ray<D>,
+        max_toi: Scalar,
+        filter: &QueryFilter,
+        stats: &mut QueryStats,
+    ) -> Option<Hit<S::Id, D, S::SubObject>> {
+        self.raycast_nearest_impl(scene, ray, max_toi, filter, stats)
+    }
+
+    fn raycast_nearest_impl<S: InstancedGeometry<D>, O: Observe>(
+        &self,
+        scene: &S,
+        ray: &Ray<D>,
+        max_toi: Scalar,
+        filter: &QueryFilter,
+        mut obs: O,
     ) -> Option<Hit<S::Id, D, S::SubObject>> {
         if self.nodes.is_empty() {
             return None;
@@ -81,6 +119,8 @@ impl<const D: usize> Tlas<D> {
         let mut stack: Vec<u32> = vec![0];
         while let Some(ni) = stack.pop() {
             let node = self.nodes[ni as usize];
+            obs.node();
+            obs.aabb();
             match node.bounds.ray_intersect(ray, limit) {
                 Some((t_enter, _)) if t_enter <= limit => {}
                 _ => continue,
@@ -93,7 +133,9 @@ impl<const D: usize> Tlas<D> {
                     if !scene.accepts(i, filter) {
                         continue;
                     }
+                    obs.narrow();
                     if let Some(hit) = test_instance(scene, i, ray, limit) {
+                        obs.hit();
                         match &best {
                             Some(prev) if hit_ordering(prev, &hit).is_le() => {}
                             _ => {
@@ -120,6 +162,29 @@ impl<const D: usize> Tlas<D> {
         max_toi: Scalar,
         filter: &QueryFilter,
     ) -> Vec<Hit<S::Id, D, S::SubObject>> {
+        self.raycast_all_impl(scene, ray, max_toi, filter, NoStats)
+    }
+
+    /// All hits along `ray`, also accumulating traversal counts into `stats`.
+    pub fn raycast_all_stats<S: InstancedGeometry<D>>(
+        &self,
+        scene: &S,
+        ray: &Ray<D>,
+        max_toi: Scalar,
+        filter: &QueryFilter,
+        stats: &mut QueryStats,
+    ) -> Vec<Hit<S::Id, D, S::SubObject>> {
+        self.raycast_all_impl(scene, ray, max_toi, filter, stats)
+    }
+
+    fn raycast_all_impl<S: InstancedGeometry<D>, O: Observe>(
+        &self,
+        scene: &S,
+        ray: &Ray<D>,
+        max_toi: Scalar,
+        filter: &QueryFilter,
+        mut obs: O,
+    ) -> Vec<Hit<S::Id, D, S::SubObject>> {
         let mut hits = Vec::new();
         if self.nodes.is_empty() {
             return hits;
@@ -127,6 +192,8 @@ impl<const D: usize> Tlas<D> {
         let mut stack: Vec<u32> = vec![0];
         while let Some(ni) = stack.pop() {
             let node = self.nodes[ni as usize];
+            obs.node();
+            obs.aabb();
             if node.bounds.ray_intersect(ray, max_toi).is_none() {
                 continue;
             }
@@ -138,7 +205,9 @@ impl<const D: usize> Tlas<D> {
                     if !scene.accepts(i, filter) {
                         continue;
                     }
+                    obs.narrow();
                     if let Some(hit) = test_instance(scene, i, ray, max_toi) {
+                        obs.hit();
                         hits.push(hit);
                     }
                 }
@@ -162,6 +231,29 @@ impl<const D: usize> Tlas<D> {
         max_toi: Scalar,
         filter: &QueryFilter,
     ) -> Vec<Hit<S::Id, D, S::SubObject>> {
+        self.raycast_crossings_impl(scene, ray, max_toi, filter, NoStats)
+    }
+
+    /// Every crossing of `ray`, also accumulating traversal counts into `stats`.
+    pub fn raycast_crossings_stats<S: InstancedGeometry<D>>(
+        &self,
+        scene: &S,
+        ray: &Ray<D>,
+        max_toi: Scalar,
+        filter: &QueryFilter,
+        stats: &mut QueryStats,
+    ) -> Vec<Hit<S::Id, D, S::SubObject>> {
+        self.raycast_crossings_impl(scene, ray, max_toi, filter, stats)
+    }
+
+    fn raycast_crossings_impl<S: InstancedGeometry<D>, O: Observe>(
+        &self,
+        scene: &S,
+        ray: &Ray<D>,
+        max_toi: Scalar,
+        filter: &QueryFilter,
+        mut obs: O,
+    ) -> Vec<Hit<S::Id, D, S::SubObject>> {
         let mut hits = Vec::new();
         if self.nodes.is_empty() {
             return hits;
@@ -169,6 +261,8 @@ impl<const D: usize> Tlas<D> {
         let mut stack: Vec<u32> = vec![0];
         while let Some(ni) = stack.pop() {
             let node = self.nodes[ni as usize];
+            obs.node();
+            obs.aabb();
             if node.bounds.ray_intersect(ray, max_toi).is_none() {
                 continue;
             }
@@ -180,12 +274,14 @@ impl<const D: usize> Tlas<D> {
                     if !scene.accepts(i, filter) {
                         continue;
                     }
+                    obs.narrow();
                     let iso = scene.transform(i);
                     let local = Ray::new_unnormalized(
                         iso.inverse_transform_point(ray.origin),
                         iso.inverse_transform_vector(ray.dir),
                     );
                     let mut push = |lh: LeafHit<D, S::SubObject>| {
+                        obs.hit();
                         hits.push(Hit {
                             id: scene.id(i),
                             leaf: i,
