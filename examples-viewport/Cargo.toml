@@ -11,3 +11,14 @@ description = "Visual examples for spatial-query, rendered with viewport-lib's V
 spatial-query = { path = ".." }
 viewport-lib = { path = "../../viewport-lib", features = ["app"] }
 glam = "=0.30.10"
+
+[features]
+# The `many_rays` example (Phase 8E) needs the core GPU backend. It selects the
+# core's `wgpu27` leg rather than the default `gpu` (29) so a single wgpu 27
+# unifies with viewport-lib's default `wgpu27` leg instead of compiling two wgpu
+# majors. If viewport-lib's default leg moves, flip this to match.
+gpu = ["spatial-query/wgpu27"]
+
+[[example]]
+name = "many_rays"
+required-features = ["gpu"]

@@ -58,6 +58,8 @@
 
 pub mod accel;
 pub mod dispatch;
+#[cfg(any(feature = "wgpu27", feature = "wgpu29"))]
+pub mod gpu;
 pub mod maths;
 pub mod query;
 

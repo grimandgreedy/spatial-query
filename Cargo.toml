@@ -15,9 +15,18 @@ readme = "README.md"
 [features]
 # Default is the pure-CPU, host-agnostic core: no wgpu, no renderer, no physics.
 default = []
-# Optional GPU-compute traversal backend. Pulls wgpu into the graph; the core
-# stays usable and correct without it. See docs/plans for the phase that lands this.
-gpu = []
+# Optional GPU-compute traversal backend: device-side batched-ray traversal in
+# 3D for a consumer-supplied WGSL narrow-phase. Off by default; the core stays
+# usable and correct without it.
+#
+# The wgpu major version is not pinned. Two mutually-exclusive legs select it,
+# mirroring viewport-lib's own `wgpu27` / `wgpu29` seam: enabling `gpu` picks the
+# 29 leg, and a consumer building alongside viewport-lib's 27 leg can select
+# `wgpu27` instead so a single wgpu unifies. A new leg (e.g. wgpu 30) is added
+# here and given a branch in `gpu::backend`.
+gpu = ["wgpu29"]
+wgpu29 = ["dep:wgpu", "dep:pollster", "dep:bytemuck"]
+wgpu27 = ["dep:wgpu27", "dep:pollster", "dep:bytemuck"]
 # Optional double-precision query math for consumers that need it (determinism
 # / large-coordinate scenes). Off by default.
 f64 = []
@@ -26,5 +35,16 @@ f64 = []
 # The core is N-dimensional (ADR-002): the point type is const-generic
 # `[f32; D]`, not glam::Vec3, so glam is intentionally NOT a core dependency.
 # glam lives only in the 3D adapters and examples.
+#
+# The GPU backend is the one exception to the dependency-light rule, and it is
+# gated entirely behind the off-by-default GPU legs: with default features (and
+# with `--no-default-features`) none of these are compiled. The default `gpu`
+# pick keeps the plain `wgpu` name on the newer 29; the 27 leg is the same
+# crates.io crate under a local alias. Backend features (metal, vulkan) and the
+# versions match viewport-lib so a single wgpu unifies when an example uses both.
+wgpu = { version = "29.0", features = ["metal", "vulkan"], optional = true }
+wgpu27 = { package = "wgpu", version = "27.0", features = ["metal", "vulkan"], optional = true }
+pollster = { version = "0.4", optional = true }
+bytemuck = { version = "1", optional = true }
 
 [dev-dependencies]

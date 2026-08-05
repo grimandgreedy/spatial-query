@@ -168,3 +168,55 @@ impl QueryGeometry<3> for SphereScene {
         d2 <= self.radii[leaf] * self.radii[leaf]
     }
 }
+
+// The device twin of the CPU provider, so the `many_rays` example can run the
+// same sphere scene on the GPU backend. The `narrow` WGSL mirrors `test_ray`
+// exactly, including taking the far root when the near one is behind the origin,
+// so the two backends agree on every ray.
+#[cfg(feature = "gpu")]
+impl spatial_query::gpu::GpuGeometry for SphereScene {
+    fn prim_stride(&self) -> u32 {
+        4
+    }
+
+    fn prim_data(&self) -> Vec<f32> {
+        let mut out = Vec::with_capacity(self.centers.len() * 4);
+        for (c, r) in self.centers.iter().zip(&self.radii) {
+            out.extend_from_slice(&[c[0], c[1], c[2], *r]);
+        }
+        out
+    }
+
+    fn narrow_wgsl(&self) -> String {
+        r#"
+        fn narrow(leaf: u32, ro: vec3<f32>, rd: vec3<f32>, max_toi: f32) -> Hit {
+            let base = leaf * params.prim_stride;
+            let c = vec3<f32>(prims[base], prims[base + 1u], prims[base + 2u]);
+            let r = prims[base + 3u];
+            let oc = ro - c;
+            let b = dot(oc, rd);
+            let disc = b * b - (dot(oc, oc) - r * r);
+            var h: Hit;
+            h.hit = 0u;
+            h.toi = 0.0;
+            h.normal = vec3<f32>(0.0);
+            if (disc < 0.0) {
+                return h;
+            }
+            let sq = sqrt(disc);
+            var t = -b - sq;
+            if (t < 0.0) {
+                t = -b + sq;
+            }
+            if (t < 0.0 || t > max_toi) {
+                return h;
+            }
+            h.hit = 1u;
+            h.toi = t;
+            h.normal = normalize((ro + rd * t) - c);
+            return h;
+        }
+        "#
+        .to_string()
+    }
+}

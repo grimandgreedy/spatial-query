@@ -460,6 +460,20 @@ impl<const D: usize> Bvh<D> {
         self.nodes.len()
     }
 
+    /// The flat node array (root at index 0). Used by the GPU backend to pack the
+    /// tree into a device buffer; the CPU tree stays canonical.
+    #[cfg(any(feature = "wgpu27", feature = "wgpu29"))]
+    pub(crate) fn nodes(&self) -> &[Node<D>] {
+        &self.nodes
+    }
+
+    /// The primitive index order leaves slice into. Uploaded once as device
+    /// topology; a refit re-uploads bounds, not this.
+    #[cfg(any(feature = "wgpu27", feature = "wgpu29"))]
+    pub(crate) fn prim_indices(&self) -> &[u32] {
+        &self.prim_indices
+    }
+
     /// The tree's current structural statistics, computed on demand.
     pub fn stats(&self) -> TreeStats {
         let (leaf_count, prim_count, max_depth) = tree::structural(&self.nodes);
