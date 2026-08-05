@@ -12,6 +12,7 @@
 
 use super::filter::QueryFilter;
 use super::hit::LeafHit;
+use super::shapecast::ShapeCast;
 use crate::maths::{Aabb, Isometry, Ray, Scalar};
 
 /// A set of transformed instances the [`Tlas`](crate::accel::Tlas) queries.
@@ -37,6 +38,38 @@ pub trait InstancedGeometry<const D: usize> {
     /// local space; the tree rotates it back to world. The tree has already
     /// established that the world ray meets the instance's world AABB.
     fn test_ray_local(&self, i: usize, local_ray: &Ray<D>, max_toi: Scalar) -> Option<LeafHit<D>>;
+
+    /// Test the swept probe of `cast` against instance `i`. Return the nearest
+    /// contact at or before `max_toi`, or `None`, with a world-space contact
+    /// normal.
+    ///
+    /// Unlike [`test_ray_local`](Self::test_ray_local), the cast is given in
+    /// world space and the normal is expected in world space: a swept box does
+    /// not stay axis-aligned under rotation, so the core does not move the probe
+    /// into local space for you. Use [`transform`](Self::transform) to do that
+    /// inside the test if the exact narrow test needs it. The core has already
+    /// established that the swept probe's box meets the instance's world AABB.
+    ///
+    /// The default returns `None`; providers override to answer shape casts.
+    fn test_shape_cast(
+        &self,
+        _i: usize,
+        _cast: &ShapeCast<D>,
+        _max_toi: Scalar,
+    ) -> Option<LeafHit<D>> {
+        None
+    }
+
+    /// Whether instance `i`'s exact geometry intersects the world-space
+    /// `region`.
+    ///
+    /// The default returns `true`: the core only calls this once the instance's
+    /// world AABB is known to meet `region`, so the default reports AABB-level
+    /// overlap. Providers override for an exact test, transforming `region` into
+    /// local space themselves if needed.
+    fn test_overlap(&self, _i: usize, _region: &Aabb<D>) -> bool {
+        true
+    }
 
     /// Whether instance `i` passes `filter`. The default accepts every instance.
     fn accepts(&self, _i: usize, _filter: &QueryFilter) -> bool {

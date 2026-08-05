@@ -6,7 +6,7 @@
 //! conversions live here so that `glam` never reaches the core.
 
 use glam::Vec3;
-use spatial_query::{Aabb, LeafHit, Point, QueryGeometry, Ray};
+use spatial_query::{Aabb, LeafHit, Point, QueryGeometry, Ray, ShapeCast};
 
 /// Core point -> glam vector (3D instantiation, at the crate boundary).
 #[inline]
@@ -122,5 +122,56 @@ impl QueryGeometry<3> for SphereScene {
             normal,
             sub_object: None,
         })
+    }
+
+    // A ball probe swept against a static sphere is a ray against a sphere grown
+    // by the probe radius, which is read back from the cast's box half-extent.
+    fn test_shape_cast(
+        &self,
+        leaf: usize,
+        cast: &ShapeCast<3>,
+        max_toi: f32,
+    ) -> Option<LeafHit<3>> {
+        let c = self.centers[leaf];
+        let sum = self.radii[leaf] + cast.aabb.max[0];
+        let oc = cast.origin - c;
+        let b = oc.dot(cast.dir);
+        let cc = oc.length_squared() - sum * sum;
+        let disc = b * b - cc;
+        if disc < 0.0 {
+            return None;
+        }
+        let sq = disc.sqrt();
+        let mut t = -b - sq;
+        if t < 0.0 {
+            t = -b + sq;
+        }
+        if t < 0.0 || t > max_toi {
+            return None;
+        }
+        let normal = (cast.at(t) - c).normalize_or_zero();
+        Some(LeafHit {
+            toi: t,
+            normal,
+            sub_object: None,
+        })
+    }
+
+    // Exact sphere-vs-box overlap: the box's nearest point to the centre is
+    // within the sphere radius.
+    fn test_overlap(&self, leaf: usize, region: &Aabb<3>) -> bool {
+        let c = self.centers[leaf];
+        let mut d2 = 0.0;
+        for i in 0..3 {
+            let v = if c[i] < region.min[i] {
+                region.min[i] - c[i]
+            } else if c[i] > region.max[i] {
+                c[i] - region.max[i]
+            } else {
+                0.0
+            };
+            d2 += v * v;
+        }
+        d2 <= self.radii[leaf] * self.radii[leaf]
     }
 }

@@ -11,6 +11,7 @@
 
 use super::filter::QueryFilter;
 use super::hit::LeafHit;
+use super::shapecast::ShapeCast;
 use crate::maths::{Aabb, Ray, Scalar};
 
 /// A consumer's spatial data, described in the terms the core queries. Generic
@@ -32,6 +33,31 @@ pub trait QueryGeometry<const D: usize> {
     /// before `max_toi`, or `None`. The core has already established that the
     /// ray meets the leaf's AABB.
     fn test_ray(&self, leaf: usize, ray: &Ray<D>, max_toi: Scalar) -> Option<LeafHit<D>>;
+
+    /// Test the swept probe of `cast` against `leaf`'s exact geometry. Return the
+    /// nearest contact at or before `max_toi`, or `None`. The returned `toi` is
+    /// the sweep distance to contact, and the normal is the world-space contact
+    /// normal. The core has already established that the swept probe's box meets
+    /// the leaf's AABB.
+    ///
+    /// The default returns `None`; providers override to answer shape casts.
+    fn test_shape_cast(
+        &self,
+        _leaf: usize,
+        _cast: &ShapeCast<D>,
+        _max_toi: Scalar,
+    ) -> Option<LeafHit<D>> {
+        None
+    }
+
+    /// Whether `leaf`'s exact geometry intersects the world-space `region`.
+    ///
+    /// The default returns `true`: the core only calls this once the leaf's AABB
+    /// is known to meet `region`, so the default reports AABB-level overlap.
+    /// Providers override for an exact test against their real geometry.
+    fn test_overlap(&self, _leaf: usize, _region: &Aabb<D>) -> bool {
+        true
+    }
 
     /// Whether `leaf` passes `filter`. The default accepts every leaf; providers
     /// override to implement layer masks, exclusion, sensor rules, and so on.

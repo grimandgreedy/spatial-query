@@ -11,8 +11,12 @@ pub mod geometry;
 pub mod hit;
 pub mod instance;
 pub mod naive;
+pub mod overlap;
+pub mod shapecast;
 
 pub use filter::QueryFilter;
 pub use geometry::QueryGeometry;
 pub use hit::{Hit, LeafHit};
 pub use instance::InstancedGeometry;
+pub use overlap::Overlap;
+pub use shapecast::ShapeCast;

@@ -96,6 +96,17 @@ impl<const D: usize> Aabb<D> {
         sum
     }
 
+    /// Whether `self` and `other` overlap. Touching faces count as overlap.
+    #[inline]
+    pub fn intersects(self, other: Self) -> bool {
+        for i in 0..D {
+            if self.min[i] > other.max[i] || self.max[i] < other.min[i] {
+                return false;
+            }
+        }
+        true
+    }
+
     /// Slab test against a ray. Returns the entry/exit parameters
     /// `(t_min, t_max)` clamped so `t_min >= 0`, or `None` if the ray misses the
     /// box within `[0, max_toi]`.

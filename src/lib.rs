@@ -63,4 +63,6 @@ pub mod query;
 // `spatial_query::QueryGeometry`, etc., regardless of the internal module tree.
 pub use accel::{Bvh, Tlas};
 pub use maths::{plane_rotation, Aabb, Isometry, Point, Ray, Scalar};
-pub use query::{naive, Hit, InstancedGeometry, LeafHit, QueryFilter, QueryGeometry};
+pub use query::{
+    naive, Hit, InstancedGeometry, LeafHit, Overlap, QueryFilter, QueryGeometry, ShapeCast,
+};
