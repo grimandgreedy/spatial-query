@@ -18,7 +18,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use glam::{Mat4, Quat, Vec3};
-use spatial_query::{Aabb, Bvh, LeafHit, Point, QueryFilter, QueryGeometry, Ray};
+use spatial_query::{Aabb, Bvh, Hit, LeafHit, Point, QueryFilter, QueryGeometry, Ray};
 use spatial_query_viewport_examples::to_vec3;
 use viewport_lib::{primitives, AppConfig, Material, NodeId, ViewportApp};
 
@@ -96,7 +96,7 @@ fn main() {
         let f = field.borrow();
 
         let filter = QueryFilter::default();
-        let mut hits: Vec<LeafHit<3>> = Vec::with_capacity(GRID * GRID);
+        let mut hits: Vec<Hit<usize, 3>> = Vec::with_capacity(GRID * GRID);
         let mut hit_points: Vec<Vec3> = Vec::with_capacity(GRID * GRID);
         for iy in 0..GRID {
             for ix in 0..GRID {

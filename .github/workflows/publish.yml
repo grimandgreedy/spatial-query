@@ -1,0 +1,52 @@
+name: Publish Crate
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check tag matches spatial-query version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          CARGO_VERSION=$(grep '^version = ' crates/spatial-query/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          test "$TAG_VERSION" = "$CARGO_VERSION"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      # Only the core is published; the viewport-lib-query adapter and the
+      # examples crate are publish=false. Skipped if that exact version is
+      # already on crates.io, so re-running a tag is a no-op rather than a
+      # failure.
+      - name: Publish spatial-query if new
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          name="spatial-query"
+          ver=$(cargo metadata --no-deps --format-version 1 \
+            | python3 -c "import sys,json;print(next(p['version'] for p in json.load(sys.stdin)['packages'] if p['name']=='$name'))")
+          idx="https://index.crates.io/${name:0:2}/${name:2:2}/$name"
+          if curl -sf "$idx" | grep -q "\"vers\":\"$ver\""; then
+            echo "$name $ver already on crates.io, skipping"
+          else
+            echo "publishing $name $ver"
+            cargo publish -p "$name"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true

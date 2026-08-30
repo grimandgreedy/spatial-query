@@ -10,5 +10,5 @@ description = "Reference adapter making a viewport-lib Scene queryable through s
 # viewport-free. glam is pinned to viewport-lib's exact version so transforms
 # interoperate.
 spatial-query = { path = "../spatial-query" }
-viewport-lib = { path = "../../../viewport-lib" }
+viewport-lib = { path = "../../../viewport-lib/crates/viewport-lib" }
 glam = "=0.30.10"

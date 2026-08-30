@@ -1,10 +1,16 @@
 [package]
 name = "spatial-query"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
+rust-version = "1.85"
+authors = ["Grim <grimandgreedy@protonmail.com>"]
 description = "Host-agnostic, N-dimensional spatial acceleration and query engine (BVH, ray/shape/overlap) over an arbitrary set of objects in n-space."
-repository = ""
+license = "MIT OR Apache-2.0"
+# Set this before the first publish once the repo has a remote.
+# repository = "https://github.com/grimandgreedy/spatial-query"
 readme = "README.md"
+keywords = ["bvh", "raycast", "spatial", "collision", "acceleration"]
+categories = ["algorithms", "data-structures", "graphics", "game-development"]
 
 [features]
 # Default is the pure-CPU, host-agnostic core: no wgpu, no renderer, no physics.

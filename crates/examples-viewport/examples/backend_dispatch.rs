@@ -26,8 +26,8 @@ use spatial_query::{
 };
 use spatial_query_viewport_examples::{sweep_ray, to_point, to_vec3, SphereScene};
 use viewport_lib::{
-    primitives, AppConfig, LabelAnchor, LabelItem, Material, NodeId, OverlayFill, OverlayShape,
-    OverlayShapeItem, ViewportApp,
+    primitives, AppConfig, LabelAnchor, LabelAnchorY, LabelItem, Material, NodeId, OverlayFill,
+    OverlayShape, OverlayShapeItem, ViewportApp,
 };
 
 const SPHERES: usize = 120;
@@ -124,14 +124,16 @@ fn main() {
             ov.labels.push(
                 LabelItem::new(format!("auto: {picked:?}"))
                     .with_screen_anchor([170.0, 44.0])
-                    .with_anchor_align(LabelAnchor::Center)
+                    .with_align_x(LabelAnchor::Middle)
+                    .with_align_y(LabelAnchorY::Middle)
                     .with_colour([1.0, 1.0, 1.0, 1.0])
                     .with_font_size(22.0),
             );
             ov.labels.push(
                 LabelItem::new(format!("{label}  ({batch} rays, {dirs} dirs)"))
                     .with_screen_anchor([170.0, 68.0])
-                    .with_anchor_align(LabelAnchor::Center)
+                    .with_align_x(LabelAnchor::Middle)
+                    .with_align_y(LabelAnchorY::Middle)
                     .with_colour([0.95, 0.95, 0.95, 0.9])
                     .with_font_size(13.0),
             );

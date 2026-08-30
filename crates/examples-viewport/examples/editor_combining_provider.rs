@@ -20,8 +20,8 @@ use glam::{Mat4, Quat, Vec3};
 use spatial_query::{Aabb, Bvh, LeafHit, Point, QueryFilter, QueryGeometry, Ray};
 use spatial_query_viewport_examples::{sweep_ray, to_point, to_vec3};
 use viewport_lib::{
-    primitives, AppConfig, ItemSettings, LabelAnchor, LabelItem, Material, NodeId, OverlayFill,
-    OverlayShape, OverlayShapeItem, ViewportApp,
+    primitives, AppConfig, ItemSettings, LabelAnchor, LabelAnchorY, LabelItem, Material, NodeId,
+    OverlayFill, OverlayShape, OverlayShapeItem, ViewportApp,
 };
 use viewport_lib_query::SceneQuery;
 
@@ -318,7 +318,8 @@ fn main() {
         ov.labels.push(
             LabelItem::new(label)
                 .with_screen_anchor([190.0, 48.0])
-                .with_anchor_align(LabelAnchor::Center)
+                .with_align_x(LabelAnchor::Middle)
+                .with_align_y(LabelAnchorY::Middle)
                 .with_colour([0.1, 0.1, 0.1, 1.0])
                 .with_font_size(20.0),
         );

@@ -10,7 +10,7 @@ description = "Visual examples for spatial-query, rendered with viewport-lib's V
 # interoperate. The core never depends on glam.
 spatial-query = { path = "../spatial-query" }
 viewport-lib-query = { path = "../viewport-lib-query" }
-viewport-lib = { path = "../../../viewport-lib", features = ["app"] }
+viewport-lib = { path = "../../../viewport-lib/crates/viewport-lib", features = ["app"] }
 glam = "=0.30.10"
 
 [features]
