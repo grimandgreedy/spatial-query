@@ -2,11 +2,16 @@
 #   crates/spatial-query          - the core engine (host-agnostic, dependency-light)
 #   crates/viewport-lib-query     - the reference render-side adapter (carries viewport-lib)
 #   crates/examples-viewport      - visual examples (carries viewport-lib)
-# The core stays viewport-free; only the adapter and examples pull viewport-lib in.
+#
+# Only the core is a workspace member. The adapter and its examples depend on
+# viewport-lib by a sibling path, so they cannot load without that clone present.
+# Keeping them as members would make every cargo command (metadata, publish, build)
+# fail wherever viewport-lib is absent, e.g. CI and a fresh clone. They are excluded
+# here and built on their own when the viewport-lib clone sits alongside this one.
 [workspace]
 resolver = "2"
-members = [
-    "crates/spatial-query",
+members = ["crates/spatial-query"]
+exclude = [
     "crates/viewport-lib-query",
     "crates/examples-viewport",
 ]
