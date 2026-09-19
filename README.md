@@ -42,4 +42,4 @@ Run with `cargo run -p spatial-query-viewport-examples --example <name>`:
 The default build is the pure CPU core with no optional dependencies.
 
 - `gpu` (`wgpu29` / `wgpu27` legs): device-side batched-ray traversal for large batches, with a consumer-supplied WGSL narrow phase.
-- `f64`: double-precision query maths.
+- `f64`: double-precision
